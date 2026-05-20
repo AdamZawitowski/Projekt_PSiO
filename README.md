@@ -1,4 +1,99 @@
 # Projekt_PSiO
+Proponowany podział ról
+Osoba A — Gameplay / Mechaniki gry
+
+Odpowiada za logikę gry i zachowanie świata.
+
+Zadania
+ruch gracza
+chodzenie
+skok
+grawitacja
+sprint / dash (opcjonalnie)
+kolizje
+z podłożem
+ze ścianami
+z przeciwnikami
+z przedmiotami
+system przeciwników
+patrolowanie
+wykrywanie kolizji
+obrażenia / śmierć
+system punktów i życia
+respawn/checkpointy
+logika wygranej/przegranej
+fizyka platformówki
+balans gameplayu
+Dodatkowo
+przygotowanie klas:
+Player
+Enemy
+Physics
+CollisionSystem
+
+Osoba B — Silnik gry / Grafika / Mapy:
+
+Odpowiada za rendering, assety i strukturę gry.
+
+Zadania
+renderowanie obiektów SFML
+kamera / scrolling mapy
+tilemapa
+ładowanie poziomów
+animacje sprite’ów
+UI/HUD
+licznik punktów
+życie
+menu
+ekran game over
+audio
+muzyka
+efekty dźwiękowe
+asset management
+tekstury
+fonty
+dźwięki
+optymalizacja renderingu
+Dodatkowo
+przygotowanie klas:
+Renderer
+TileMap
+Animation
+AudioManager
+UIManager
+Zadania wspólne
+
+Te rzeczy warto robić razem:
+
+Projekt architektury
+
+struktura folderów
+naming convention
+ustalenie stylu kodu
+podział klas
+UML (jeśli wymagany)
+
+Game design
+
+wygląd poziomów
+mechaniki
+przeciwnicy
+power-upy
+poziom trudności
+
+Testowanie
+
+bug fixing
+playtesty
+debugowanie
+
+Dokumentacja
+
+README
+instrukcja uruchamiania
+opis klas
+komentarze
+
 Plan projektu
 Etap 1 — Setup projektu
 
