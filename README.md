@@ -1,6 +1,6 @@
 # Projekt_PSiO
 Proponowany podział ról
-Osoba A — Gameplay / Mechaniki gry
+Osoba Adam Zawitowski — Gameplay / Mechaniki gry
 
 Odpowiada za logikę gry i zachowanie świata.
 
@@ -31,7 +31,7 @@ Enemy
 Physics
 CollisionSystem
 
-Osoba B — Silnik gry / Grafika / Mapy:
+Osoba Wiktor Zalewski — Silnik gry / Grafika / Mapy:
 
 Odpowiada za rendering, assety i strukturę gry.
 
