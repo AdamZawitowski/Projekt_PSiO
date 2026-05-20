@@ -34,21 +34,6 @@ refactor
 Technologie, które warto dodać
 Build system
 
-Polecam:
-
-CMake
-Debugging
-Visual Studio debugger
-CLion debugger
-sanitizers (-fsanitize=address)
-Grafika
-
-Darmowe assety:
-
-Kenney
-OpenGameArt
-Minimalny zakres projektu (żeby projekt był „zaliczalny”)
-
 Minimum:
 
 ruch gracza
