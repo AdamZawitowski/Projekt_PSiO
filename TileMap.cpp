@@ -137,11 +137,14 @@ sf::Vector2f TileMap::getSizeInPixels() const {
 
 TileType TileMap::charToTile(char cell) {
     switch (cell) {
-    case '#': return TileType::Ground;
+    case '#':
+    case 'G': return TileType::Ground;
     case 'B': return TileType::Brick;
-    case '?': return TileType::QuestionBlock;
+    case '?':
+    case 'Q': return TileType::QuestionBlock;
     case 'M': return TileType::MetalBlock;
-    case 'T': return TileType::Platform;
+    case 'T':
+    case 'P': return TileType::Platform;
     default:  return TileType::Empty;
     }
 }
@@ -158,6 +161,7 @@ void TileMap::applyCharToTile(Tile& tile, char cell) {
         tile.destructible = true;
         break;
     case '?':
+    case 'Q':
         tile.hasBonus = true;
         tile.bonus = BonusType::Coin;
         break;
