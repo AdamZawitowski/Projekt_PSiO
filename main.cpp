@@ -139,6 +139,7 @@ TileCounts countTiles(const TileMap& tileMap) {
 
 int main() {
     sf::RenderWindow window(sf::VideoMode({800, 480}), "Mario Contra 2");
+    window.setFramerateLimit(60);
 
     TileMap tileMap;
     if (!tileMap.loadFromFile("level1.txt"))
@@ -147,6 +148,7 @@ int main() {
     const TileCounts tileCounts = countTiles(tileMap);
 
     Player player;
+
     sf::Clock clock;
 
     const sf::Vector2f viewSize(
@@ -164,6 +166,9 @@ int main() {
         while (const std::optional event = window.pollEvent()) {
             if (event->is<sf::Event::Closed>())
                 window.close();
+            if (const auto* key = event->getIf<sf::Event::KeyPressed>())
+                if (key->code == sf::Keyboard::Key::Escape)
+                    window.close();
         }
 
         const float dt = clock.restart().asSeconds();

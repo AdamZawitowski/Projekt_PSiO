@@ -13,6 +13,9 @@ Player::Player()
     m_shape.setPosition(m_spawnPoint);
 }
 
+// ------------------------------------------------------------------ //
+//  Update — kolejnosc ma znaczenie!                                     //
+// ------------------------------------------------------------------ //
 void Player::update(float dt) {
     applyGravity(dt);
     handleInput(dt);
@@ -119,6 +122,9 @@ void Player::resolveCollisions(const TileMap& tileMap) {
     }
 }
 
+// ------------------------------------------------------------------ //
+//  Rysowanie                                                            //
+// ------------------------------------------------------------------ //
 void Player::draw(sf::RenderWindow& window) const {
     window.draw(m_shape);
 }

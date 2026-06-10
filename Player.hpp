@@ -12,6 +12,7 @@ public:
 
     Player();
 
+    // --- Glowne metody ---
     void update(float dt);
     void draw(sf::RenderWindow& window) const;
 
