@@ -1,7 +1,9 @@
 #include <SFML/Graphics.hpp>
 #include <algorithm>
 #include <string>
+#include <vector>
 #include "Player.hpp"
+#include "Enemy.hpp"
 #include "TileMap.hpp"
 
 namespace {
@@ -40,8 +42,8 @@ bool isPipeTop(const TileMap& tileMap, int col, int row) {
 }
 
 void drawPipeTile(sf::RenderWindow& window, const TileMap& tileMap, int col, int row) {
-    const float x = col * TileMap::TILE_SIZE;
-    const float y = row * TileMap::TILE_SIZE;
+    const float x    = col * TileMap::TILE_SIZE;
+    const float y    = row * TileMap::TILE_SIZE;
     const float size = TileMap::TILE_SIZE;
 
     sf::RectangleShape body({size, size});
@@ -90,15 +92,12 @@ void drawStandardTile(sf::RenderWindow& window, const Tile& tile, int col, int r
 
 void drawTileMap(sf::RenderWindow& window, const TileMap& tileMap) {
     const sf::Vector2u sizeInTiles = tileMap.getSizeInTiles();
-
     for (unsigned row = 0; row < sizeInTiles.y; ++row) {
         for (unsigned col = 0; col < sizeInTiles.x; ++col) {
             const float sampleX = col * TileMap::TILE_SIZE + TileMap::TILE_SIZE * 0.5f;
             const float sampleY = row * TileMap::TILE_SIZE + TileMap::TILE_SIZE * 0.5f;
             const Tile* tile = tileMap.getTileAt(sampleX, sampleY);
-            if (!tile)
-                continue;
-
+            if (!tile) continue;
             if (tile->type == TileType::Platform)
                 drawPipeTile(window, tileMap, static_cast<int>(col), static_cast<int>(row));
             else
@@ -108,30 +107,24 @@ void drawTileMap(sf::RenderWindow& window, const TileMap& tileMap) {
 }
 
 struct TileCounts {
-    int ground = 0;
-    int question = 0;
-    int pipes = 0;
-    int brick = 0;
-    int metal = 0;
+    int ground = 0, question = 0, pipes = 0, brick = 0, metal = 0;
 };
 
 TileCounts countTiles(const TileMap& tileMap) {
     TileCounts counts;
     const sf::Vector2u sizeInTiles = tileMap.getSizeInTiles();
-
     for (unsigned row = 0; row < sizeInTiles.y; ++row) {
         for (unsigned col = 0; col < sizeInTiles.x; ++col) {
             switch (tileMap.getTile(static_cast<int>(col), static_cast<int>(row))) {
-            case TileType::Ground:        ++counts.ground; break;
+            case TileType::Ground:        ++counts.ground;   break;
             case TileType::QuestionBlock: ++counts.question; break;
-            case TileType::Platform:      ++counts.pipes; break;
-            case TileType::Brick:         ++counts.brick; break;
-            case TileType::MetalBlock:    ++counts.metal; break;
+            case TileType::Platform:      ++counts.pipes;    break;
+            case TileType::Brick:         ++counts.brick;    break;
+            case TileType::MetalBlock:    ++counts.metal;    break;
             default: break;
             }
         }
     }
-
     return counts;
 }
 
@@ -149,12 +142,17 @@ int main() {
 
     Player player;
 
+    // Wrogowie — dodaj tyle ile chcesz, podaj pozycje startowe
+    std::vector<Enemy> enemies;
+    enemies.emplace_back(sf::Vector2f(400.f, 380.f));
+    enemies.emplace_back(sf::Vector2f(600.f, 380.f));
+
     sf::Clock clock;
 
     const sf::Vector2f viewSize(
         static_cast<float>(window.getSize().x),
         static_cast<float>(window.getSize().y));
-    const float levelWidth = tileMap.getSizeInPixels().x;
+    const float levelWidth      = tileMap.getSizeInPixels().x;
     const float maxCameraCenterX = std::max(viewSize.x / 2.f, levelWidth - viewSize.x / 2.f);
 
     sf::View view(sf::FloatRect({0.f, 0.f}, viewSize));
@@ -173,32 +171,50 @@ int main() {
 
         const float dt = clock.restart().asSeconds();
 
+        // --- UPDATE ---
         player.update(dt);
         player.resolveCollisions(tileMap);
 
+        for (Enemy& enemy : enemies)
+            enemy.update(dt, tileMap);
+
+        // --- Kolizje gracza z wrogami ---
+        for (Enemy& enemy : enemies) {
+            if (!enemy.isAlive()) continue;
+
+            bool stompedFromAbove = enemy.checkCollisionWithPlayer(player);
+            if (stompedFromAbove) {
+                // Gracz depcze wroga od gory
+                enemy.kill();
+                player.addScore(100);
+            } else if (enemy.getBounds().findIntersection(player.getBounds())) {
+                // Kolizja z boku — gracz traci zycie
+                player.loseLife();
+            }
+        }
+
+        // --- Kamera ---
         const sf::FloatRect playerBounds = player.getBounds();
         float targetCenterX = playerBounds.position.x + playerBounds.size.x / 2.f;
-
-        if (targetCenterX < viewSize.x / 2.f)
-            targetCenterX = viewSize.x / 2.f;
-        if (targetCenterX > maxCameraCenterX)
-            targetCenterX = maxCameraCenterX;
+        if (targetCenterX < viewSize.x / 2.f)       targetCenterX = viewSize.x / 2.f;
+        if (targetCenterX > maxCameraCenterX)        targetCenterX = maxCameraCenterX;
 
         sf::Vector2f center = view.getCenter();
-        const float lerp = std::min(1.f, cameraLerpSpeed * dt);
+        const float lerp    = std::min(1.f, cameraLerpSpeed * dt);
         center.x += (targetCenterX - center.x) * lerp;
-        center.y = viewSize.y / 2.f;
+        center.y  = viewSize.y / 2.f;
         view.setCenter(center);
 
         window.setTitle(
             "Mario Contra 2 | zycia: " + std::to_string(player.getLives())
-            + " | pkt: " + std::to_string(player.getScore())
-            + " | ?: " + std::to_string(tileCounts.question)
-            + " | rury: " + std::to_string(tileCounts.pipes));
+            + " | pkt: " + std::to_string(player.getScore()));
 
+        // --- DRAW ---
         window.clear(sf::Color(135, 206, 235));
         window.setView(view);
         drawTileMap(window, tileMap);
+        for (Enemy& enemy : enemies)
+            enemy.draw(window);
         player.draw(window);
         window.display();
     }
