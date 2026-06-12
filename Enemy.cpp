@@ -1,6 +1,7 @@
 #include "Enemy.hpp"
 #include "Player.hpp"
 #include <cmath>
+#include <iostream>
 
 // ------------------------------------------------------------------ //
 //  Konstruktor                                                          //
@@ -9,10 +10,42 @@ Enemy::Enemy(sf::Vector2f startPosition)
     : m_velocity(0.f, 0.f)
     , m_alive(true)
     , m_movingRight(true)
+    , m_textureLoaded(false)
 {
-    m_shape.setSize({28.f, 28.f});      // rozmiar wroga (jeden kafelek = 32px)
-    m_shape.setFillColor(sf::Color(180, 60, 60)); // ciemnoczerwony
+    // Hitbox — przezroczysty, uzywa do kolizji
+    m_shape.setSize({HITBOX_W, HITBOX_H});
+    m_shape.setFillColor(sf::Color::Transparent);
     m_shape.setPosition(startPosition);
+
+    // Ladowanie tekstury
+    if (m_texture.loadFromFile("assets/enemy.png")) {
+        m_sprite.emplace(m_texture);
+
+        // Origin na dolny srodek tekstury — identycznie jak u Playera
+        sf::Vector2u sz = m_texture.getSize();
+        m_sprite->setOrigin({ sz.x / 2.f, static_cast<float>(sz.y) });
+
+        m_textureLoaded = true;
+        applySpriteToHitbox();
+    } else {
+        std::cerr << "[Enemy] Nie mozna wczytac tekstury: assets/enemy.png\n";
+        // Fallback — widoczny czerwony prostokat
+        m_shape.setFillColor(sf::Color(180, 60, 60));
+    }
+}
+
+// ------------------------------------------------------------------ //
+//  Synchronizacja pozycji sprajta z hitboxem                           //
+//  Origin sprajta = dolny srodek — wiec pozycja = srodek dolnej       //
+//  krawedzi hitboxa                                                     //
+// ------------------------------------------------------------------ //
+void Enemy::applySpriteToHitbox() {
+    if (!m_sprite) return;
+    sf::FloatRect b = m_shape.getGlobalBounds();
+    m_sprite->setPosition({
+        b.position.x + b.size.x / 2.f,  // srodek X hitboxa
+        b.position.y + b.size.y          // dolna krawedz hitboxa
+    });
 }
 
 // ------------------------------------------------------------------ //
@@ -42,20 +75,24 @@ void Enemy::applyGravity(float dt) {
 void Enemy::patrol(float dt, const TileMap& tileMap) {
     m_velocity.x = m_movingRight ? MOVE_SPEED : -MOVE_SPEED;
 
+    // Odbicie lustrzane sprajta w zaleznosci od kierunku ruchu
+    if (m_sprite) {
+        m_sprite->setScale({ m_movingRight ? 1.f : -1.f, 1.f });
+    }
+
     sf::FloatRect b = m_shape.getGlobalBounds();
-    const float TS  = TileMap::TILE_SIZE;
 
     // Sprawdz czy przed wrogiem jest podloga (zapobiega spadaniu z platform)
     if (m_movingRight) {
         sf::Vector2f groundCheck = {
-            b.position.x + b.size.x + 2.f,   // przed prawym bokiem
-            b.position.y + b.size.y + 1.f     // tuż pod stopami
+            b.position.x + b.size.x + 2.f,  // przed prawym bokiem
+            b.position.y + b.size.y + 1.f   // tuz pod stopami
         };
         if (!tileMap.isSolidAtPixel(groundCheck))
-            m_movingRight = false;             // zawroc bo skraj platformy
+            m_movingRight = false;
     } else {
         sf::Vector2f groundCheck = {
-            b.position.x - 2.f,               // przed lewym bokiem
+            b.position.x - 2.f,             // przed lewym bokiem
             b.position.y + b.size.y + 1.f
         };
         if (!tileMap.isSolidAtPixel(groundCheck))
@@ -67,7 +104,7 @@ void Enemy::patrol(float dt, const TileMap& tileMap) {
 }
 
 // ------------------------------------------------------------------ //
-//  Kolizje z tilemap (uproszczone — tylko gora/dol i boki)             //
+//  Kolizje z tilemap (gora/dol i boki)                                 //
 // ------------------------------------------------------------------ //
 void Enemy::resolveCollisions(const TileMap& tileMap) {
     const float TS  = TileMap::TILE_SIZE;
@@ -96,7 +133,7 @@ void Enemy::resolveCollisions(const TileMap& tileMap) {
         if (cr) {
             float tileCol = std::floor((b.position.x + b.size.x) / TS);
             m_shape.setPosition({tileCol * TS - b.size.x, b.position.y});
-            m_movingRight = false; // zawroc
+            m_movingRight = false;
             m_velocity.x  = 0.f;
         }
     } else if (m_velocity.x < 0.f) {
@@ -105,10 +142,13 @@ void Enemy::resolveCollisions(const TileMap& tileMap) {
         if (cl) {
             float tileCol = std::floor(b.position.x / TS);
             m_shape.setPosition({(tileCol + 1.f) * TS, b.position.y});
-            m_movingRight = true; // zawroc
+            m_movingRight = true;
             m_velocity.x  = 0.f;
         }
     }
+
+    // Synchronizuj sprajt po rozwiazaniu kolizji
+    applySpriteToHitbox();
 }
 
 // ------------------------------------------------------------------ //
@@ -119,11 +159,11 @@ void Enemy::resolveCollisions(const TileMap& tileMap) {
 bool Enemy::checkCollisionWithPlayer(const Player& player) const {
     if (!m_alive) return false;
 
-    sf::FloatRect enemyBounds  = m_shape.getGlobalBounds();
+    sf::FloatRect enemyBounds  = m_shape.getGlobalBounds();  // hitbox, nie sprite
     sf::FloatRect playerBounds = player.getBounds();
 
     if (!enemyBounds.findIntersection(playerBounds))
-        return false; // brak kolizji
+        return false;
 
     // Jesli dolna krawedz gracza jest powyzej srodka wroga — depce od gory
     float playerBottom = playerBounds.position.y + playerBounds.size.y;
@@ -137,7 +177,11 @@ bool Enemy::checkCollisionWithPlayer(const Player& player) const {
 // ------------------------------------------------------------------ //
 void Enemy::draw(sf::RenderWindow& window) const {
     if (!m_alive) return;
-    window.draw(m_shape);
+
+    if (m_sprite)
+        window.draw(*m_sprite);
+    else
+        window.draw(m_shape);  // fallback gdy brak tekstury
 }
 
 // ------------------------------------------------------------------ //

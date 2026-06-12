@@ -1,5 +1,6 @@
 #pragma once
 #include <SFML/Graphics.hpp>
+#include <optional>
 #include "TileMap.hpp"
 
 // Zapowiedz klasy Player — zeby nie includowac calego headera
@@ -10,6 +11,10 @@ public:
     static constexpr float MOVE_SPEED = 80.f;   // px/s
     static constexpr float GRAVITY    = 800.f;  // px/s^2
     static constexpr float MAX_FALL   = 500.f;  // terminal velocity
+
+    // Rozmiar hitboxa — niezalezny od rozmiaru tekstury
+    static constexpr float HITBOX_W = 28.f;
+    static constexpr float HITBOX_H = 28.f;
 
     // Konstruktor — podaj pozycje startowa wroga
     explicit Enemy(sf::Vector2f startPosition);
@@ -35,10 +40,17 @@ private:
     void applyGravity(float dt);
     void patrol(float dt, const TileMap& tileMap);
     void resolveCollisions(const TileMap& tileMap);
+    void applySpriteToHitbox();          // synchronizuje pozycje sprajta z hitboxem
 
-    sf::RectangleShape m_shape;
-    sf::Vector2f       m_velocity;
+    // Hitbox — podstawa kolizji, niewidoczny
+    sf::RectangleShape    m_shape;
+    sf::Vector2f          m_velocity;
 
     bool m_alive;
     bool m_movingRight; // kierunek patrolowania
+
+    // Dane wizualne — tekstura musi zyc dluzej niz sprite (SFML 3)
+    sf::Texture             m_texture;
+    std::optional<sf::Sprite> m_sprite; // SFML 3: Sprite wymaga tekstury przy konstrukcji
+    bool                    m_textureLoaded;
 };

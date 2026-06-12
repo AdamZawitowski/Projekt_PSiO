@@ -1,5 +1,6 @@
 #include <SFML/Graphics.hpp>
 #include <algorithm>
+#include <iostream>
 #include <string>
 #include <vector>
 #include "Player.hpp"
@@ -8,104 +9,148 @@
 
 namespace {
 
-sf::Color colorForTile(const Tile& tile) {
-    switch (tile.type) {
-    case TileType::Ground:        return sf::Color(139, 90, 43);
-    case TileType::Brick:         return sf::Color(200, 80, 60);
-    case TileType::QuestionBlock: return sf::Color(255, 200, 64);
-    case TileType::MetalBlock:    return sf::Color(160, 160, 170);
-    default:                      return sf::Color::Transparent;
+// ------------------------------------------------------------------ //
+//  Tekstury kafelkow — ladowane raz przed game loopem                  //
+// ------------------------------------------------------------------ //
+struct TileTextures {
+    sf::Texture dirt;       // assets/dirt.png    — ziemia z trawa (gorny rzad)
+    sf::Texture dirt2;      // assets/dirt_2.png  — ziemia pod spodem
+    sf::Texture brick;      // assets/brick.png   — cegly
+    sf::Texture pipe;       // assets/pipe.png    — rura
+    sf::Texture question;   // assets/qest.png    — blok z pytajnikiem
+    sf::Texture hole;       // assets/hole.png    — przepasc
+
+    bool load() {
+        struct { sf::Texture& tex; const char* path; } assets[] = {
+            { dirt,     "assets/dirt.png"   },
+            { dirt2,    "assets/dirt_2.png" },
+            { brick,    "assets/brick.png"  },
+            { pipe,     "assets/pipe.png"   },
+            { question, "assets/qest.png"   },
+            { hole,     "assets/hole.png"   },
+        };
+
+        bool ok = true;
+        for (auto& a : assets) {
+            if (!a.tex.loadFromFile(a.path)) {
+                std::cerr << "[TileTextures] Nie mozna wczytac: " << a.path << "\n";
+                ok = false;
+            }
+        }
+        return ok;
     }
+};
+
+// ------------------------------------------------------------------ //
+//  Pomocnicze: czy komorka nizej jest ziemia (do wykrycia gornego rzadu)//
+// ------------------------------------------------------------------ //
+bool isGroundBelow(const TileMap& tileMap, int col, int row) {
+    return tileMap.getTile(col, row + 1) == TileType::Ground;
 }
 
-sf::Color outlineForTile(const Tile& tile) {
-    switch (tile.type) {
-    case TileType::QuestionBlock:
-        return tile.hasBonus && !tile.activated ? sf::Color(200, 120, 0) : sf::Color(80, 80, 80);
-    case TileType::Brick:
-        return tile.destructible ? sf::Color(120, 40, 30) : sf::Color(40, 40, 40);
-    default:
-        return sf::Color(40, 40, 40);
-    }
+// ------------------------------------------------------------------ //
+//  Rysowanie pojedynczego kafelka jako sprajt                          //
+//  Sprajt pozycjonowany lewym-gornym rogiem na (col*TS, row*TS)        //
+//  i skalowany do dokladnie TILE_SIZE x TILE_SIZE                      //
+// ------------------------------------------------------------------ //
+void drawTileSprite(sf::RenderWindow& window,
+                    const sf::Texture& tex,
+                    int col, int row)
+{
+    const float TS  = TileMap::TILE_SIZE;
+    sf::Vector2u sz = tex.getSize();
+
+    sf::Sprite sprite(tex);
+    sprite.setPosition({ col * TS, row * TS });
+    // Skaluj teksture do rozmiaru kafelka (na wypadek roznych rozmiarow PNG)
+    sprite.setScale({ TS / sz.x, TS / sz.y });
+    window.draw(sprite);
 }
 
-float outlineThicknessForTile(const Tile& tile) {
-    if (tile.type == TileType::QuestionBlock && tile.hasBonus && !tile.activated)
-        return 2.f;
-    return 1.f;
-}
-
-bool isPipeTop(const TileMap& tileMap, int col, int row) {
-    if (row <= 0)
-        return true;
-    return tileMap.getTile(col, row - 1) != TileType::Platform;
-}
-
-void drawPipeTile(sf::RenderWindow& window, const TileMap& tileMap, int col, int row) {
-    const float x    = col * TileMap::TILE_SIZE;
-    const float y    = row * TileMap::TILE_SIZE;
-    const float size = TileMap::TILE_SIZE;
-
-    sf::RectangleShape body({size, size});
-    body.setPosition({x, y});
-    body.setFillColor(sf::Color(0, 128, 0));
-    window.draw(body);
-
-    sf::RectangleShape highlight({7.f, size});
-    highlight.setPosition({x + 5.f, y});
-    highlight.setFillColor(sf::Color(96, 220, 96));
-    window.draw(highlight);
-
-    sf::RectangleShape shadow({5.f, size});
-    shadow.setPosition({x + size - 7.f, y});
-    shadow.setFillColor(sf::Color(0, 76, 0));
-    window.draw(shadow);
-
-    sf::RectangleShape innerShade({size - 14.f, size});
-    innerShade.setPosition({x + 12.f, y});
-    innerShade.setFillColor(sf::Color(0, 104, 0));
-    window.draw(innerShade);
-
-    if (isPipeTop(tileMap, col, row)) {
-        sf::RectangleShape rim({size + 6.f, 8.f});
-        rim.setPosition({x - 3.f, y - 4.f});
-        rim.setFillColor(sf::Color(0, 168, 0));
-        rim.setOutlineColor(sf::Color(0, 56, 0));
-        rim.setOutlineThickness(1.f);
-        window.draw(rim);
-
-        sf::RectangleShape rimHighlight({7.f, 6.f});
-        rimHighlight.setPosition({x + 2.f, y - 3.f});
-        rimHighlight.setFillColor(sf::Color(120, 236, 120));
-        window.draw(rimHighlight);
-    }
-}
-
-void drawStandardTile(sf::RenderWindow& window, const Tile& tile, int col, int row) {
-    sf::RectangleShape tileShape({TileMap::TILE_SIZE, TileMap::TILE_SIZE});
-    tileShape.setPosition({col * TileMap::TILE_SIZE, row * TileMap::TILE_SIZE});
-    tileShape.setFillColor(colorForTile(tile));
-    tileShape.setOutlineColor(outlineForTile(tile));
-    tileShape.setOutlineThickness(outlineThicknessForTile(tile));
-    window.draw(tileShape);
-}
-
-void drawTileMap(sf::RenderWindow& window, const TileMap& tileMap) {
+// ------------------------------------------------------------------ //
+//  Glowna funkcja rysowania mapy                                        //
+// ------------------------------------------------------------------ //
+void drawTileMap(sf::RenderWindow& window,
+                 const TileMap& tileMap,
+                 const TileTextures& tex)
+{
     const sf::Vector2u sizeInTiles = tileMap.getSizeInTiles();
+
     for (unsigned row = 0; row < sizeInTiles.y; ++row) {
         for (unsigned col = 0; col < sizeInTiles.x; ++col) {
-            const float sampleX = col * TileMap::TILE_SIZE + TileMap::TILE_SIZE * 0.5f;
-            const float sampleY = row * TileMap::TILE_SIZE + TileMap::TILE_SIZE * 0.5f;
-            const Tile* tile = tileMap.getTileAt(sampleX, sampleY);
-            if (!tile) continue;
-            if (tile->type == TileType::Platform)
-                drawPipeTile(window, tileMap, static_cast<int>(col), static_cast<int>(row));
-            else
-                drawStandardTile(window, *tile, static_cast<int>(col), static_cast<int>(row));
+
+            const TileType type = tileMap.getTile(
+                static_cast<int>(col), static_cast<int>(row));
+
+            switch (type) {
+
+            case TileType::Ground: {
+                // Gorny rzad ziemi (pod nim tez ziemia lub skraj mapy) = trawa
+                // Dolny rzad ziemi = czysty dirt
+                bool isTop = isGroundBelow(tileMap,
+                    static_cast<int>(col), static_cast<int>(row));
+                drawTileSprite(window,
+                    isTop ? tex.dirt
+                          : tex.dirt2,
+                    static_cast<int>(col), static_cast<int>(row));
+                break;
+            }
+
+            case TileType::Brick:
+                drawTileSprite(window,
+                    tex.brick,
+                    static_cast<int>(col), static_cast<int>(row));
+                break;
+
+            case TileType::QuestionBlock:
+                drawTileSprite(window,
+                    tex.question,
+                    static_cast<int>(col), static_cast<int>(row));
+                break;
+
+            case TileType::MetalBlock:
+                // Brak dedykowanego assetu — uzywamy dirt2 jako fallback
+                drawTileSprite(window,
+                    tex.dirt2,
+                    static_cast<int>(col), static_cast<int>(row));
+                break;
+
+            case TileType::Platform:
+                drawTileSprite(window,
+                    tex.pipe,
+                    static_cast<int>(col), static_cast<int>(row));
+                break;
+
+            case TileType::Empty: {
+                // Rysuj hole.png tylko w miejscu przepasci w rzedach ziemi
+                // (zeby przepasc byla widoczna pod poziomem gruntu)
+                bool inGroundZone = false;
+                for (int checkRow = static_cast<int>(row);
+                     checkRow < static_cast<int>(sizeInTiles.y); ++checkRow)
+                {
+                    if (tileMap.getTile(static_cast<int>(col), checkRow)
+                            == TileType::Ground) {
+                        inGroundZone = true;
+                        break;
+                    }
+                }
+                if (inGroundZone)
+                    drawTileSprite(window,
+                        tex.hole,
+                        static_cast<int>(col), static_cast<int>(row));
+                break;
+            }
+
+            default:
+                break;
+            }
         }
     }
 }
 
+// ------------------------------------------------------------------ //
+//  countTiles — bez zmian, potrzebne do statystyk                      //
+// ------------------------------------------------------------------ //
 struct TileCounts {
     int ground = 0, question = 0, pipes = 0, brick = 0, metal = 0;
 };
@@ -130,6 +175,9 @@ TileCounts countTiles(const TileMap& tileMap) {
 
 } // namespace
 
+// ================================================================== //
+//  main                                                                //
+// ================================================================== //
 int main() {
     sf::RenderWindow window(sf::VideoMode({800, 480}), "Mario Contra 2");
     window.setFramerateLimit(60);
@@ -137,6 +185,13 @@ int main() {
     TileMap tileMap;
     if (!tileMap.loadFromFile("level1.txt"))
         return 1;
+
+    // Laduj tekstury kafelkow — raz, przed petla
+    TileTextures tileTextures;
+    if (!tileTextures.load()) {
+        std::cerr << "[main] Nie wszystkie tekstury kafelkow zostaly zaladowane.\n";
+        // Kontynuujemy — brakujace tekstury beda niewidoczne (bialy kwadrat SFML)
+    }
 
     const TileCounts tileCounts = countTiles(tileMap);
 
@@ -152,8 +207,9 @@ int main() {
     const sf::Vector2f viewSize(
         static_cast<float>(window.getSize().x),
         static_cast<float>(window.getSize().y));
-    const float levelWidth      = tileMap.getSizeInPixels().x;
-    const float maxCameraCenterX = std::max(viewSize.x / 2.f, levelWidth - viewSize.x / 2.f);
+    const float levelWidth       = tileMap.getSizeInPixels().x;
+    const float maxCameraCenterX = std::max(viewSize.x / 2.f,
+                                            levelWidth - viewSize.x / 2.f);
 
     sf::View view(sf::FloatRect({0.f, 0.f}, viewSize));
     view.setCenter(viewSize / 2.f);
@@ -184,11 +240,9 @@ int main() {
 
             bool stompedFromAbove = enemy.checkCollisionWithPlayer(player);
             if (stompedFromAbove) {
-                // Gracz depcze wroga od gory
                 enemy.kill();
                 player.addScore(100);
             } else if (enemy.getBounds().findIntersection(player.getBounds())) {
-                // Kolizja z boku — gracz traci zycie
                 player.loseLife();
             }
         }
@@ -196,8 +250,8 @@ int main() {
         // --- Kamera ---
         const sf::FloatRect playerBounds = player.getBounds();
         float targetCenterX = playerBounds.position.x + playerBounds.size.x / 2.f;
-        if (targetCenterX < viewSize.x / 2.f)       targetCenterX = viewSize.x / 2.f;
-        if (targetCenterX > maxCameraCenterX)        targetCenterX = maxCameraCenterX;
+        if (targetCenterX < viewSize.x / 2.f)  targetCenterX = viewSize.x / 2.f;
+        if (targetCenterX > maxCameraCenterX)   targetCenterX = maxCameraCenterX;
 
         sf::Vector2f center = view.getCenter();
         const float lerp    = std::min(1.f, cameraLerpSpeed * dt);
@@ -207,12 +261,12 @@ int main() {
 
         window.setTitle(
             "Mario Contra 2 | zycia: " + std::to_string(player.getLives())
-            + " | pkt: " + std::to_string(player.getScore()));
+            + " | pkt: "               + std::to_string(player.getScore()));
 
         // --- DRAW ---
         window.clear(sf::Color(135, 206, 235));
         window.setView(view);
-        drawTileMap(window, tileMap);
+        drawTileMap(window, tileMap, tileTextures);
         for (Enemy& enemy : enemies)
             enemy.draw(window);
         player.draw(window);

@@ -10,6 +10,7 @@
                 "${workspaceFolder}/main.cpp",
                 "${workspaceFolder}/Player.cpp",
                 "${workspaceFolder}/TileMap.cpp",
+                "${workspaceFolder}/Enemy.cpp",
                 "-o",
                 "${workspaceFolder}/MarioContra2.exe",
                 "-I", "C:/msys64/ucrt64/include",
