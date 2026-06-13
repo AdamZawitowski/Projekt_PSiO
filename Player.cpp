@@ -326,6 +326,8 @@ void Player::resolveCollisions(const TileMap& tileMap) {
                 resolved = true;
                 break;
             }
+
+            
         }
     }
 
@@ -339,8 +341,15 @@ void Player::resolveCollisions(const TileMap& tileMap) {
     if (m_onGround && std::abs(m_velocity.y) < VELOCITY_EPSILON)
         m_velocity.y = 0.f;
 
+    // Wypadniecie z mapy — traci zycie
+    const sf::Vector2f mapSize = tileMap.getSizeInPixels();
+    if (m_shape.getPosition().y > mapSize.y) {
+        loseLife();
+    }
+
     if (m_texturesLoaded)
         applySpriteToHitbox();
+
 }
 
 // ------------------------------------------------------------------ //
@@ -370,8 +379,15 @@ void Player::loseLife() {
     if (m_texturesLoaded)
         setState(PlayerState::Dead);
     m_lives--;
-    if (m_lives > 0) respawn();
+
+    if (m_lives > 0) {
+        respawn();
+    }
+    else {
+        // można tu dodać ekran game over lub reset gry
+    }
 }
+
 
 void Player::respawn() {
     m_shape.setPosition(m_spawnPoint);
