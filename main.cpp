@@ -18,25 +18,30 @@ struct TileTextures {
     sf::Texture brick;      // assets/brick.png   — cegly
     sf::Texture pipe;       // assets/pipe.png    — rura
     sf::Texture question;   // assets/qest.png    — blok z pytajnikiem
-    sf::Texture hole;       // assets/hole.png    — przepasc
+    sf::Texture holeLeft;   // assets/hole.png    — lewy brzeg przepasci
+    sf::Texture holeRight;  // assets/hole_2.png  — prawy brzeg przepasci
+    sf::Texture holeMid;    // assets/hole_3.png  — srodek przepasci
 
     bool load() {
-        struct { sf::Texture& tex; const char* path; } assets[] = {
-            { dirt,     "assets/dirt.png"   },
-            { dirt2,    "assets/dirt_2.png" },
-            { brick,    "assets/brick.png"  },
-            { pipe,     "assets/pipe.png"   },
-            { question, "assets/qest.png"   },
-            { hole,     "assets/hole.png"   },
-        };
-
         bool ok = true;
-        for (auto& a : assets) {
-            if (!a.tex.loadFromFile(a.path)) {
-                std::cerr << "[TileTextures] Nie mozna wczytac: " << a.path << "\n";
-                ok = false;
-            }
-        }
+
+        if (!dirt    .loadFromFile("assets/dirt.png"))
+            { std::cerr << "[TileTextures] brak: assets/dirt.png\n";   ok = false; }
+        if (!dirt2   .loadFromFile("assets/dirt_2.png"))
+            { std::cerr << "[TileTextures] brak: assets/dirt_2.png\n"; ok = false; }
+        if (!brick   .loadFromFile("assets/brick.png"))
+            { std::cerr << "[TileTextures] brak: assets/brick.png\n";  ok = false; }
+        if (!pipe    .loadFromFile("assets/pipe.png"))
+            { std::cerr << "[TileTextures] brak: assets/pipe.png\n";   ok = false; }
+        if (!question.loadFromFile("assets/qest.png"))
+            { std::cerr << "[TileTextures] brak: assets/qest.png\n";   ok = false; }
+        if (!holeLeft .loadFromFile("assets/hole.png"))
+            { std::cerr << "[TileTextures] brak: assets/hole.png\n";    ok = false; }
+        if (!holeRight.loadFromFile("assets/hole_2.png"))
+            { std::cerr << "[TileTextures] brak: assets/hole_2.png\n";  ok = false; }
+        if (!holeMid  .loadFromFile("assets/hole_3.png"))
+            { std::cerr << "[TileTextures] brak: assets/hole_3.png\n";  ok = false; }
+
         return ok;
     }
 };
@@ -44,8 +49,80 @@ struct TileTextures {
 // ------------------------------------------------------------------ //
 //  Pomocnicze: czy komorka nizej jest ziemia (do wykrycia gornego rzadu)//
 // ------------------------------------------------------------------ //
-bool isGroundBelow(const TileMap& tileMap, int col, int row) {
+// Zwraca true jesli ten rzad to GORNY rzad ziemi (z trawa) -
+// czyli pod nim jest kolejny rzad ziemi.
+bool isTopGroundRow(const TileMap& tileMap, int col, int row) {
     return tileMap.getTile(col, row + 1) == TileType::Ground;
+}
+
+bool isPipeTopTile(const TileMap& tileMap, int col, int row) {
+    return tileMap.getTile(col, row - 1) != TileType::Platform;
+}
+
+int pipeStackHeight(const TileMap& tileMap, int col, int row) {
+    int height = 1;
+    while (tileMap.getTile(col, row + height) == TileType::Platform) {
+        ++height;
+    }
+    return height;
+}
+
+void drawPipeStack(sf::RenderWindow& window,
+                   const TileTextures& tex,
+                   int col, int row,
+                   int stackHeight)
+{
+    const float TS = TileMap::TILE_SIZE;
+    const sf::Vector2u sz = tex.pipe.getSize();
+
+    sf::Sprite sprite(tex.pipe);
+    sprite.setPosition({ col * TS, row * TS });
+    sprite.setScale({ TS / sz.x, (TS * stackHeight) / sz.y });
+    window.draw(sprite);
+}
+
+void drawTileSprite(sf::RenderWindow& window,
+                    const sf::Texture& tex,
+                    int col, int row);
+
+void drawPitBottomRow(sf::RenderWindow& window,
+                      const TileMap& tileMap,
+                      const TileTextures& tex)
+{
+    const sf::Vector2u sizeInTiles = tileMap.getSizeInTiles();
+    if (sizeInTiles.y == 0)
+        return;
+
+    const int row = static_cast<int>(sizeInTiles.y) - 1;
+    int col = 0;
+
+    while (col < static_cast<int>(sizeInTiles.x)) {
+        if (tileMap.getTile(col, row) != TileType::Empty) {
+            ++col;
+            continue;
+        }
+
+        const int startCol = col;
+        while (col < static_cast<int>(sizeInTiles.x) &&
+               tileMap.getTile(col, row) == TileType::Empty) {
+            ++col;
+        }
+
+        const int endCol = col - 1;
+        for (int x = startCol; x <= endCol; ++x) {
+            const sf::Texture* selected = &tex.holeMid;
+
+            if (startCol == endCol) {
+                selected = &tex.holeLeft;
+            } else if (x == startCol) {
+                selected = &tex.holeLeft;
+            } else if (x == endCol) {
+                selected = &tex.holeRight;
+            }
+
+            drawTileSprite(window, *selected, x, row);
+        }
+    }
 }
 
 // ------------------------------------------------------------------ //
@@ -85,67 +162,48 @@ void drawTileMap(sf::RenderWindow& window,
             switch (type) {
 
             case TileType::Ground: {
-                // Gorny rzad ziemi (pod nim tez ziemia lub skraj mapy) = trawa
-                // Dolny rzad ziemi = czysty dirt
-                bool isTop = isGroundBelow(tileMap,
+                bool isTop = isTopGroundRow(tileMap,
                     static_cast<int>(col), static_cast<int>(row));
                 drawTileSprite(window,
-                    isTop ? tex.dirt
-                          : tex.dirt2,
+                    isTop ? tex.dirt : tex.dirt2,
                     static_cast<int>(col), static_cast<int>(row));
                 break;
             }
 
             case TileType::Brick:
-                drawTileSprite(window,
-                    tex.brick,
+                drawTileSprite(window, tex.brick,
                     static_cast<int>(col), static_cast<int>(row));
                 break;
 
             case TileType::QuestionBlock:
-                drawTileSprite(window,
-                    tex.question,
+                drawTileSprite(window, tex.question,
                     static_cast<int>(col), static_cast<int>(row));
                 break;
 
             case TileType::MetalBlock:
-                // Brak dedykowanego assetu — uzywamy dirt2 jako fallback
-                drawTileSprite(window,
-                    tex.dirt2,
+                drawTileSprite(window, tex.dirt2,
                     static_cast<int>(col), static_cast<int>(row));
                 break;
 
             case TileType::Platform:
-                drawTileSprite(window,
-                    tex.pipe,
-                    static_cast<int>(col), static_cast<int>(row));
+                if (!isPipeTopTile(tileMap, static_cast<int>(col), static_cast<int>(row)))
+                    break;
+                drawPipeStack(window, tex,
+                    static_cast<int>(col), static_cast<int>(row),
+                    pipeStackHeight(tileMap, static_cast<int>(col), static_cast<int>(row)));
                 break;
 
-            case TileType::Empty: {
-                // Rysuj hole.png tylko w miejscu przepasci w rzedach ziemi
-                // (zeby przepasc byla widoczna pod poziomem gruntu)
-                bool inGroundZone = false;
-                for (int checkRow = static_cast<int>(row);
-                     checkRow < static_cast<int>(sizeInTiles.y); ++checkRow)
-                {
-                    if (tileMap.getTile(static_cast<int>(col), checkRow)
-                            == TileType::Ground) {
-                        inGroundZone = true;
-                        break;
-                    }
-                }
-                if (inGroundZone)
-                    drawTileSprite(window,
-                        tex.hole,
-                        static_cast<int>(col), static_cast<int>(row));
+            case TileType::Empty:
+                // Abyss floor is rendered in a separate pass on the bottom row.
                 break;
-            }
 
             default:
                 break;
             }
         }
     }
+
+    drawPitBottomRow(window, tileMap, tex);
 }
 
 // ------------------------------------------------------------------ //

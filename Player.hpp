@@ -58,7 +58,7 @@ private:
 
     // --- Ladowanie tekstur ---
     bool loadTextures();
-    void setTextureWithOrigin(sf::Texture& tex); // ustawia teksture + origin na dolny srodek
+    void setTextureWithOrigin(sf::Texture& tex, const sf::Vector2f& origin);
 
     // --- Dane fizyczne (hitbox) ---
     sf::RectangleShape m_shape;          // hitbox — uzywa kolizji, niewidoczny
@@ -75,6 +75,13 @@ private:
     sf::Texture  m_texJump;
     sf::Texture  m_texCrawl;
     sf::Texture  m_texDeath;
+
+    sf::Vector2f m_originIdle;
+    sf::Vector2f m_originRunR1;
+    sf::Vector2f m_originRunR2;
+    sf::Vector2f m_originJump;
+    sf::Vector2f m_originCrawl;
+    sf::Vector2f m_originDeath;
 
     std::optional<sf::Sprite> m_sprite;  // SFML 3: Sprite wymaga tekstury przy konstrukcji
 
