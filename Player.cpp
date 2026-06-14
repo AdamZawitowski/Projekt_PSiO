@@ -79,6 +79,8 @@ bool Player::loadTextures() {
     load(m_texRunR2, m_originRunR2, "assets/right_run_2.png");
     load(m_texJump,  m_originJump,  "assets/jump.png");
     load(m_texCrawl, m_originCrawl, "assets/crawl.png");
+    m_originCrawl.y = m_texCrawl.getSize().y;
+    m_originCrawl.y -= 27.f;
     load(m_texDeath, m_originDeath, "assets/death.png");
 
     return ok;
@@ -147,6 +149,13 @@ void Player::applySpriteToHitbox() {
 void Player::updateAnimation(float dt) {
     if (!m_texturesLoaded) return;
     if (m_state == PlayerState::Dead) { applySpriteToHitbox(); return; }
+    if (m_isCrouching) { applySpriteToHitbox(); return; }
+
+    if (m_isCrouching) {
+        setState(PlayerState::Crawl);
+        applySpriteToHitbox();
+        return;
+    }
 
     PlayerState target;
     const bool movingX = std::abs(m_velocity.x) >= VELOCITY_EPSILON;
@@ -232,10 +241,28 @@ void Player::handleInput(float dt) {
         sf::Keyboard::isKeyPressed(sf::Keyboard::Key::D))     ++horizontal;
     m_velocity.x = horizontal * speed;
 
-    if ((sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Down) ||
-         sf::Keyboard::isKeyPressed(sf::Keyboard::Key::S))
-        && m_onGround && m_texturesLoaded)
-        setState(PlayerState::Crawl);
+    const bool wantCrouch =
+        (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Down) ||
+            sf::Keyboard::isKeyPressed(sf::Keyboard::Key::S));
+
+    if (wantCrouch && !m_isCrouching) {
+        m_isCrouching = true;
+        const float diff = HITBOX_H - HITBOX_CROUCH_H;
+
+        // ZMNIEJSZ HITBOX OD GÓRY, NIE OD DOŁU
+        m_shape.setSize({ HITBOX_W, HITBOX_CROUCH_H });
+
+        // NIE ruszaj pozycji Y — stopy zostają tam gdzie były
+
+        if (m_texturesLoaded) setState(PlayerState::Crawl);
+
+    }
+    else if (!wantCrouch && m_isCrouching) {
+        m_isCrouching = false;
+        m_shape.setSize({ HITBOX_W, HITBOX_H });
+        // NIE ruszaj pozycji Y
+
+    }
 
     if ((sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Space) ||
          sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Up)    ||
@@ -365,6 +392,12 @@ void Player::respawn() {
     m_onGround  = false;
     m_isDying   = false;
     m_justDied  = false;
+
+    if (m_isCrouching) {
+        m_isCrouching = false;
+        m_shape.setSize({ HITBOX_W, HITBOX_H });
+    }
+
     if (m_texturesLoaded) {
         m_state = PlayerState::Idle;
         setState(PlayerState::Idle);

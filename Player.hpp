@@ -15,7 +15,7 @@ public:
 
     static constexpr float HITBOX_W = 26.f;
     static constexpr float HITBOX_H = 32.f;
-
+    static constexpr float HITBOX_CROUCH_H = 18.f; 
     Player();
 
     void update(float dt);
@@ -42,6 +42,7 @@ private:
     float m_deathTimer = 0.f;
     bool  m_isDying    = false;
     bool  m_justDied   = false;   // impuls dla screen shake — true przez 1 klatke
+    bool  m_isCrouching = false;
 
     // --- Stany animacji ---
     enum class PlayerState {
