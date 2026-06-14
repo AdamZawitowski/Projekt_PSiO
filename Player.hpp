@@ -37,7 +37,16 @@ public:
     void loseLife();
     void respawn();
 
+    bool isDying() const { return m_isDying; }
+
+
 private:
+
+    // --- Smierc i respawn ---
+    float m_deathTimer = 0.f;
+    static constexpr float DEATH_DELAY = 1.2f; // czas animacji smierci w sekundach
+    bool  m_isDying = false;
+
     // --- Stany animacji ---
     enum class PlayerState {
         Idle,
@@ -89,4 +98,5 @@ private:
     float        m_animTimer;            // czas do nastepnej klatki animacji biegu
     bool         m_runFrame;             // false = run_1, true = run_2
     bool         m_texturesLoaded;
+
 };

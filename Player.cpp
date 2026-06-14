@@ -205,6 +205,21 @@ void Player::updateAnimation(float dt) {
 //  Update                                                               //
 // ------------------------------------------------------------------ //
 void Player::update(float dt) {
+    // Jesli gracz jest w trakcie animacji smierci — czekaj, potem respawnuj
+    if (m_isDying) {
+        m_deathTimer -= dt;
+        if (m_deathTimer <= 0.f) {
+            m_isDying = false;
+
+            if (m_lives > 0) {
+                respawn();
+            }
+        }
+
+        applySpriteToHitbox();
+        return; // blokuj input i grawitacje podczas animacji smierci
+    }
+
     m_velocity.x = 0.f;
     applyGravity(dt);
     handleInput(dt);
@@ -376,16 +391,15 @@ int           Player::getScore()    const { return m_score; }
 void Player::addScore(int points) { m_score += points; }
 
 void Player::loseLife() {
-    if (m_texturesLoaded)
-        setState(PlayerState::Dead);
+    if (m_isDying) return;
+    if (m_lives <= 0) return;
+
+    m_isDying = true;
+    m_deathTimer = DEATH_DELAY;
+    m_velocity = { 0.f, 0.f };
     m_lives--;
 
-    if (m_lives > 0) {
-        respawn();
-    }
-    else {
-        // można tu dodać ekran game over lub reset gry
-    }
+    if (m_texturesLoaded) setState(PlayerState::Dead);
 }
 
 
@@ -393,8 +407,9 @@ void Player::respawn() {
     m_shape.setPosition(m_spawnPoint);
     m_velocity = { 0.f, 0.f };
     m_onGround = false;
+    m_isDying = false;
     if (m_texturesLoaded) {
-        m_state = PlayerState::Idle;
+        m_state = PlayerState::Idle; // wymus reset stanu
         setState(PlayerState::Idle);
     }
 }
