@@ -1,6 +1,10 @@
 #include <SFML/Graphics.hpp>
 #include <algorithm>
+#include <cmath>
+#include <cstdlib>
+#include <iomanip>
 #include <iostream>
+#include <sstream>
 #include <string>
 #include <vector>
 #include "Player.hpp"
@@ -11,272 +15,246 @@
 
 namespace {
 
-    // ------------------------------------------------------------------ //
-    //  Tekstury kafelkow — ladowane raz przed game loopem                  //
-    // ------------------------------------------------------------------ //
-    struct TileTextures {
-        sf::Texture dirt;       // assets/dirt.png    — ziemia z trawa (gorny rzad)
-        sf::Texture dirt2;      // assets/dirt_2.png  — ziemia pod spodem
-        sf::Texture brick;      // assets/brick.png   — cegly
-        sf::Texture pipe;       // assets/pipe.png    — rura
-        sf::Texture question;   // assets/qest.png    — blok z pytajnikiem
-        sf::Texture holeLeft;   // assets/hole.png    — lewy brzeg przepasci
-        sf::Texture holeRight;  // assets/hole_2.png  — prawy brzeg przepasci
-        sf::Texture holeMid;    // assets/hole_3.png  — srodek przepasci
+// ================================================================== //
+//  Tekstury kafelkow                                                   //
+// ================================================================== //
+struct TileTextures {
+    sf::Texture dirt, dirt2, brick, pipe, question;
+    sf::Texture holeLeft, holeRight, holeMid;
 
-        bool load() {
-            bool ok = true;
+    bool load() {
+        bool ok = true;
+        auto ld = [&](sf::Texture& t, const char* p) {
+            if (!t.loadFromFile(p))
+                { std::cerr << "[TileTextures] brak: " << p << "\n"; ok = false; }
+        };
+        ld(dirt,      "assets/dirt.png");
+        ld(dirt2,     "assets/dirt_2.png");
+        ld(brick,     "assets/brick.png");
+        ld(pipe,      "assets/pipe.png");
+        ld(question,  "assets/qest.png");
+        ld(holeLeft,  "assets/hole.png");
+        ld(holeRight, "assets/hole_2.png");
+        ld(holeMid,   "assets/hole_3.png");
+        return ok;
+    }
+};
 
-            if (!dirt.loadFromFile("assets/dirt.png"))
-            {
-                std::cerr << "[TileTextures] brak: assets/dirt.png\n";   ok = false;
-            }
-            if (!dirt2.loadFromFile("assets/dirt_2.png"))
-            {
-                std::cerr << "[TileTextures] brak: assets/dirt_2.png\n"; ok = false;
-            }
-            if (!brick.loadFromFile("assets/brick.png"))
-            {
-                std::cerr << "[TileTextures] brak: assets/brick.png\n";  ok = false;
-            }
-            if (!pipe.loadFromFile("assets/pipe.png"))
-            {
-                std::cerr << "[TileTextures] brak: assets/pipe.png\n";   ok = false;
-            }
-            if (!question.loadFromFile("assets/qest.png"))
-            {
-                std::cerr << "[TileTextures] brak: assets/qest.png\n";   ok = false;
-            }
-            if (!holeLeft.loadFromFile("assets/hole.png"))
-            {
-                std::cerr << "[TileTextures] brak: assets/hole.png\n";    ok = false;
-            }
-            if (!holeRight.loadFromFile("assets/hole_2.png"))
-            {
-                std::cerr << "[TileTextures] brak: assets/hole_2.png\n";  ok = false;
-            }
-            if (!holeMid.loadFromFile("assets/hole_3.png"))
-            {
-                std::cerr << "[TileTextures] brak: assets/hole_3.png\n";  ok = false;
-            }
+// ================================================================== //
+//  Pomocnicze: rysowanie mapy                                          //
+// ================================================================== //
+bool isTopGroundRow(const TileMap& tm, int col, int row) {
+    return tm.getTile(col, row + 1) == TileType::Ground;
+}
 
-            return ok;
+bool isPipeTopTile(const TileMap& tm, int col, int row) {
+    return tm.getTile(col, row - 1) != TileType::Platform;
+}
+
+void drawTileSprite(sf::RenderWindow& w, const sf::Texture& tex, int col, int row) {
+    const float TS = TileMap::TILE_SIZE;
+    sf::Vector2u sz = tex.getSize();
+    sf::Sprite sp(tex);
+    sp.setPosition({ col * TS, row * TS });
+    sp.setScale({ TS / sz.x, TS / sz.y });
+    w.draw(sp);
+}
+
+void drawPitBottomRow(sf::RenderWindow& window,
+                      const TileMap& tileMap,
+                      const TileTextures& tex)
+{
+    const sf::Vector2u sizeInTiles = tileMap.getSizeInTiles();
+    if (sizeInTiles.y == 0) return;
+
+    const int row = static_cast<int>(sizeInTiles.y) - 1;
+    int col = 0;
+
+    while (col < static_cast<int>(sizeInTiles.x)) {
+        if (tileMap.getTile(col, row) != TileType::Empty) { ++col; continue; }
+
+        const int startCol = col;
+        while (col < static_cast<int>(sizeInTiles.x) &&
+               tileMap.getTile(col, row) == TileType::Empty)
+            ++col;
+
+        const int endCol = col - 1;
+        for (int x = startCol; x <= endCol; ++x) {
+            const sf::Texture* t = &tex.holeMid;
+            if (x == startCol) t = &tex.holeLeft;
+            if (x == endCol)   t = &tex.holeRight;
+            if (startCol == endCol) t = &tex.holeLeft;
+            drawTileSprite(window, *t, x, row);
         }
-    };
-
-    // ------------------------------------------------------------------ //
-    //  Pomocnicze: czy komorka nizej jest ziemia (do wykrycia gornego rzadu)//
-    // ------------------------------------------------------------------ //
-    // Zwraca true jesli ten rzad to GORNY rzad ziemi (z trawa) -
-    // czyli pod nim jest kolejny rzad ziemi.
-    bool isTopGroundRow(const TileMap& tileMap, int col, int row) {
-        return tileMap.getTile(col, row + 1) == TileType::Ground;
     }
+}
 
-    bool isPipeTopTile(const TileMap& tileMap, int col, int row) {
-        return tileMap.getTile(col, row - 1) != TileType::Platform;
-    }
+void drawTileMap(sf::RenderWindow& window,
+                 const TileMap& tileMap,
+                 const TileTextures& tex)
+{
+    const sf::Vector2u sz = tileMap.getSizeInTiles();
 
-    int pipeStackHeight(const TileMap& tileMap, int col, int row) {
-        int height = 1;
-        while (tileMap.getTile(col, row + height) == TileType::Platform) {
-            ++height;
-        }
-        return height;
-    }
-
-    void drawPipeStack(sf::RenderWindow& window,
-        const TileTextures& tex,
-        int col, int row,
-        int stackHeight)
-    {
-        const float TS = TileMap::TILE_SIZE;
-        const sf::Vector2u sz = tex.pipe.getSize();
-
-        sf::Sprite sprite(tex.pipe);
-        sprite.setPosition({ col * TS, row * TS });
-        sprite.setScale({ TS / sz.x, (TS * stackHeight) / sz.y });
-        window.draw(sprite);
-    }
-
-    void drawTileSprite(sf::RenderWindow& window,
-        const sf::Texture& tex,
-        int col, int row);
-
-    void drawPitBottomRow(sf::RenderWindow& window,
-        const TileMap& tileMap,
-        const TileTextures& tex)
-    {
-        const sf::Vector2u sizeInTiles = tileMap.getSizeInTiles();
-        if (sizeInTiles.y == 0)
-            return;
-
-        const int row = static_cast<int>(sizeInTiles.y) - 1;
-        int col = 0;
-
-        while (col < static_cast<int>(sizeInTiles.x)) {
-            if (tileMap.getTile(col, row) != TileType::Empty) {
-                ++col;
-                continue;
-            }
-
-            const int startCol = col;
-            while (col < static_cast<int>(sizeInTiles.x) &&
-                tileMap.getTile(col, row) == TileType::Empty) {
-                ++col;
-            }
-
-            const int endCol = col - 1;
-            for (int x = startCol; x <= endCol; ++x) {
-                const sf::Texture* selected = &tex.holeMid;
-
-                if (startCol == endCol) {
-                    selected = &tex.holeLeft;
-                }
-                else if (x == startCol) {
-                    selected = &tex.holeLeft;
-                }
-                else if (x == endCol) {
-                    selected = &tex.holeRight;
-                }
-
-                drawTileSprite(window, *selected, x, row);
+    for (unsigned row = 0; row < sz.y; ++row) {
+        for (unsigned col = 0; col < sz.x; ++col) {
+            const int c = static_cast<int>(col);
+            const int r = static_cast<int>(row);
+            switch (tileMap.getTile(c, r)) {
+            case TileType::Ground:
+                drawTileSprite(window,
+                    isTopGroundRow(tileMap, c, r) ? tex.dirt : tex.dirt2, c, r);
+                break;
+            case TileType::Brick:
+                drawTileSprite(window, tex.brick, c, r);   break;
+            case TileType::QuestionBlock:
+                drawTileSprite(window, tex.question, c, r); break;
+            case TileType::MetalBlock:
+                drawTileSprite(window, tex.dirt2, c, r);   break;
+            case TileType::Platform:
+                if (isPipeTopTile(tileMap, c, r))
+                    drawTileSprite(window, tex.pipe, c, r);
+                break;
+            default: break;
             }
         }
     }
+    drawPitBottomRow(window, tileMap, tex);
+}
 
-    // ------------------------------------------------------------------ //
-    //  Rysowanie pojedynczego kafelka jako sprajt                          //
-    //  Sprajt pozycjonowany lewym-gornym rogiem na (col*TS, row*TS)        //
-    //  i skalowany do dokladnie TILE_SIZE x TILE_SIZE                      //
-    // ------------------------------------------------------------------ //
-    void drawTileSprite(sf::RenderWindow& window,
-        const sf::Texture& tex,
-        int col, int row)
-    {
-        const float TS = TileMap::TILE_SIZE;
-        sf::Vector2u sz = tex.getSize();
+// ================================================================== //
+//  HUD                                                                 //
+// ================================================================== //
+// Formatuje liczbe do N cyfr z wiodacymi zerami: 150 -> "000150"
+std::string formatScore(int score, int digits = 6) {
+    std::ostringstream oss;
+    oss << std::setw(digits) << std::setfill('0') << std::max(0, score);
+    return oss.str();
+}
 
-        sf::Sprite sprite(tex);
-        sprite.setPosition({ col * TS, row * TS });
-        // Skaluj teksture do rozmiaru kafelka (na wypadek roznych rozmiarow PNG)
-        sprite.setScale({ TS / sz.x, TS / sz.y });
-        window.draw(sprite);
+// Formatuje czas MM:SS
+std::string formatTime(int seconds) {
+    seconds = std::max(0, seconds);
+    std::ostringstream oss;
+    oss << std::setw(2) << std::setfill('0') << (seconds / 60)
+        << ":" << std::setw(2) << std::setfill('0') << (seconds % 60);
+    return oss.str();
+}
+
+void drawHUD(sf::RenderWindow& window, const sf::Font& font,
+             int lives, int score, float timeLeft)
+{
+    const float W = static_cast<float>(window.getSize().x);
+
+    // Pasek tla
+    sf::RectangleShape bar({ W, 40.f });
+    bar.setFillColor(sf::Color(0, 0, 0, 200));
+    window.draw(bar);
+
+    // Ikony zyc (czerwone kwadraty)
+    for (int i = 0; i < lives; ++i) {
+        sf::RectangleShape heart({ 14.f, 14.f });
+        heart.setFillColor(sf::Color(220, 50, 50));
+        heart.setPosition({ 12.f + i * 20.f, 13.f });
+        window.draw(heart);
     }
 
-    // ------------------------------------------------------------------ //
-    //  Glowna funkcja rysowania mapy                                        //
-    // ------------------------------------------------------------------ //
-    void drawTileMap(sf::RenderWindow& window,
-        const TileMap& tileMap,
-        const TileTextures& tex)
-    {
-        const sf::Vector2u sizeInTiles = tileMap.getSizeInTiles();
+    // SCORE
+    sf::Text scoreLabel(font, "SCORE", 13);
+    scoreLabel.setFillColor(sf::Color(180, 180, 180));
+    scoreLabel.setPosition({ W / 2.f - 80.f, 4.f });
+    window.draw(scoreLabel);
 
-        for (unsigned row = 0; row < sizeInTiles.y; ++row) {
-            for (unsigned col = 0; col < sizeInTiles.x; ++col) {
+    sf::Text scoreVal(font, formatScore(score), 18);
+    scoreVal.setFillColor(sf::Color::White);
+    scoreVal.setStyle(sf::Text::Bold);
+    scoreVal.setPosition({ W / 2.f - 80.f, 18.f });
+    window.draw(scoreVal);
 
-                const TileType type = tileMap.getTile(
-                    static_cast<int>(col), static_cast<int>(row));
+    // TIME
+    sf::Text timeLabel(font, "TIME", 13);
+    timeLabel.setFillColor(sf::Color(180, 180, 180));
+    timeLabel.setPosition({ W - 100.f, 4.f });
+    window.draw(timeLabel);
 
-                switch (type) {
+    // Czerwony czas gdy < 30s
+    sf::Color timeColor = (timeLeft < 30.f) ? sf::Color(255, 80, 80) : sf::Color::White;
+    sf::Text timeVal(font, formatTime(static_cast<int>(timeLeft)), 18);
+    timeVal.setFillColor(timeColor);
+    timeVal.setStyle(sf::Text::Bold);
+    timeVal.setPosition({ W - 100.f, 18.f });
+    window.draw(timeVal);
+}
 
-                case TileType::Ground: {
-                    bool isTop = isTopGroundRow(tileMap,
-                        static_cast<int>(col), static_cast<int>(row));
-                    drawTileSprite(window,
-                        isTop ? tex.dirt : tex.dirt2,
-                        static_cast<int>(col), static_cast<int>(row));
-                    break;
-                }
-
-                case TileType::Brick:
-                    drawTileSprite(window, tex.brick,
-                        static_cast<int>(col), static_cast<int>(row));
-                    break;
-
-                case TileType::QuestionBlock:
-                    drawTileSprite(window, tex.question,
-                        static_cast<int>(col), static_cast<int>(row));
-                    break;
-
-                case TileType::MetalBlock:
-                    drawTileSprite(window, tex.dirt2,
-                        static_cast<int>(col), static_cast<int>(row));
-                    break;
-
-                case TileType::Platform:
-                    if (!isPipeTopTile(tileMap, static_cast<int>(col), static_cast<int>(row)))
-                        break;
-                    drawPipeStack(window, tex,
-                        static_cast<int>(col), static_cast<int>(row),
-                        pipeStackHeight(tileMap, static_cast<int>(col), static_cast<int>(row)));
-                    break;
-
-                case TileType::Empty:
-                    // Abyss floor is rendered in a separate pass on the bottom row.
-                    break;
-
-                default:
-                    break;
-                }
-            }
-        }
-
-        drawPitBottomRow(window, tileMap, tex);
-    }
-
-    // ------------------------------------------------------------------ //
-    //  countTiles — bez zmian, potrzebne do statystyk                      //
-    // ------------------------------------------------------------------ //
-    struct TileCounts {
-        int ground = 0, question = 0, pipes = 0, brick = 0, metal = 0;
-    };
-
-    TileCounts countTiles(const TileMap& tileMap) {
-        TileCounts counts;
-        const sf::Vector2u sizeInTiles = tileMap.getSizeInTiles();
-        for (unsigned row = 0; row < sizeInTiles.y; ++row) {
-            for (unsigned col = 0; col < sizeInTiles.x; ++col) {
-                switch (tileMap.getTile(static_cast<int>(col), static_cast<int>(row))) {
-                case TileType::Ground:        ++counts.ground;   break;
-                case TileType::QuestionBlock: ++counts.question; break;
-                case TileType::Platform:      ++counts.pipes;    break;
-                case TileType::Brick:         ++counts.brick;    break;
-                case TileType::MetalBlock:    ++counts.metal;    break;
-                default: break;
-                }
-            }
-        }
-        return counts;
-    }
-
-    void drawOverlay(sf::RenderWindow& window, const sf::Font& font,
+// ================================================================== //
+//  Overlay (GameOver / Win)                                            //
+// ================================================================== //
+void drawOverlay(sf::RenderWindow& window, const sf::Font& font,
                  const std::string& title, const std::string& subtitle,
-                 sf::Color titleColor) {
-    sf::RectangleShape bg({static_cast<float>(window.getSize().x),
-                           static_cast<float>(window.getSize().y)});
+                 sf::Color titleColor)
+{
+    sf::RectangleShape bg({ static_cast<float>(window.getSize().x),
+                            static_cast<float>(window.getSize().y) });
     bg.setFillColor(sf::Color(0, 0, 0, 160));
     window.draw(bg);
 
-    sf::Text titleText(font, title, 36);
-    titleText.setFillColor(titleColor);
-    titleText.setStyle(sf::Text::Bold);
-    sf::FloatRect tb = titleText.getLocalBounds();
-    titleText.setOrigin({tb.position.x + tb.size.x / 2.f,
-                         tb.position.y + tb.size.y / 2.f});
-    titleText.setPosition({window.getSize().x / 2.f,
-                           window.getSize().y / 2.f - 50.f});
-    window.draw(titleText);
+    sf::Text t(font, title, 48);
+    t.setFillColor(titleColor);
+    t.setStyle(sf::Text::Bold);
+    sf::FloatRect tb = t.getLocalBounds();
+    t.setOrigin({ tb.position.x + tb.size.x / 2.f,
+                  tb.position.y + tb.size.y / 2.f });
+    t.setPosition({ window.getSize().x / 2.f,
+                    window.getSize().y / 2.f - 60.f });
+    window.draw(t);
 
-    sf::Text subText(font, subtitle, 18);
-    subText.setFillColor(sf::Color::White);
-    sf::FloatRect sb = subText.getLocalBounds();
-    subText.setOrigin({sb.position.x + sb.size.x / 2.f,
-                       sb.position.y + sb.size.y / 2.f});
-    subText.setPosition({window.getSize().x / 2.f,
-                         window.getSize().y / 2.f + 30.f});
-    window.draw(subText);
+    sf::Text s(font, subtitle, 18);
+    s.setFillColor(sf::Color::White);
+    sf::FloatRect sb = s.getLocalBounds();
+    s.setOrigin({ sb.position.x + sb.size.x / 2.f,
+                  sb.position.y + sb.size.y / 2.f });
+    s.setPosition({ window.getSize().x / 2.f,
+                    window.getSize().y / 2.f + 20.f });
+    window.draw(s);
+}
+
+// Odliczanie bonusu czasowego po wygranej
+void drawBonusCountdown(sf::RenderWindow& window, const sf::Font& font,
+                        float bonusRemaining, int bonusEarned)
+{
+    sf::RectangleShape bg({ static_cast<float>(window.getSize().x),
+                            static_cast<float>(window.getSize().y) });
+    bg.setFillColor(sf::Color(0, 0, 0, 160));
+    window.draw(bg);
+
+    sf::Text t(font, "LEVEL CLEAR!", 48);
+    t.setFillColor(sf::Color::Yellow);
+    t.setStyle(sf::Text::Bold);
+    sf::FloatRect tb = t.getLocalBounds();
+    t.setOrigin({ tb.position.x + tb.size.x / 2.f,
+                  tb.position.y + tb.size.y / 2.f });
+    t.setPosition({ window.getSize().x / 2.f,
+                    window.getSize().y / 2.f - 80.f });
+    window.draw(t);
+
+    sf::Text bonus(font,
+        "TIME BONUS  " + formatTime(static_cast<int>(bonusRemaining))
+        + "  x100", 26);
+    bonus.setFillColor(sf::Color::White);
+    sf::FloatRect bb = bonus.getLocalBounds();
+    bonus.setOrigin({ bb.position.x + bb.size.x / 2.f,
+                      bb.position.y + bb.size.y / 2.f });
+    bonus.setPosition({ window.getSize().x / 2.f,
+                        window.getSize().y / 2.f });
+    window.draw(bonus);
+
+    sf::Text earned(font, "+" + std::to_string(bonusEarned) + " pts", 22);
+    earned.setFillColor(sf::Color(100, 255, 100));
+    sf::FloatRect eb = earned.getLocalBounds();
+    earned.setOrigin({ eb.position.x + eb.size.x / 2.f,
+                       eb.position.y + eb.size.y / 2.f });
+    earned.setPosition({ window.getSize().x / 2.f,
+                         window.getSize().y / 2.f + 50.f });
+    window.draw(earned);
 }
 
 } // namespace
@@ -285,6 +263,8 @@ namespace {
 //  main                                                                //
 // ================================================================== //
 int main() {
+    std::srand(static_cast<unsigned>(std::time(nullptr)));
+
     sf::RenderWindow window(sf::VideoMode({ 800, 480 }), "Mario Contra 2");
     window.setFramerateLimit(60);
 
@@ -296,136 +276,212 @@ int main() {
     else
         fontLoaded = true;
 
+    // --- Mapa ---
     TileMap tileMap;
-    if (!tileMap.loadFromFile("level1.txt"))
-        return 1;
+    if (!tileMap.loadFromFile("level1.txt")) return 1;
 
-    // Laduj tekstury kafelkow — raz, przed petla
     TileTextures tileTextures;
-    if (!tileTextures.load()) {
-        std::cerr << "[main] Nie wszystkie tekstury kafelkow zostaly zaladowane.\n";
-        // Kontynuujemy — brakujace tekstury beda niewidoczne (bialy kwadrat SFML)
-    }
+    if (!tileTextures.load())
+        std::cerr << "[main] Brak niektorych tekstur kafelkow.\n";
 
-    const TileCounts tileCounts = countTiles(tileMap);
+    const float levelWidth = tileMap.getSizeInPixels().x;
 
+    // --- Obiekty gry ---
     Player player;
 
-    // Wrogowie — dodaj tyle ile chcesz, podaj pozycje startowe
     std::vector<Enemy> enemies;
     enemies.emplace_back(sf::Vector2f(400.f, 380.f));
     enemies.emplace_back(sf::Vector2f(600.f, 380.f));
 
-    const float levelWidth = tileMap.getSizeInPixels().x;
-
-    // flaga na koncu poziomu
     GoalFlag goalFlag(sf::Vector2f(levelWidth - 96.f, 352.f));
 
+    int killCount = 0;
 
-    // stan gry
+    // --- Stan gry ---
     GameState gameState = GameState::Playing;
+
+    // --- Licznik czasu poziomu ---
+    static constexpr float LEVEL_TIME = 300.f;  // 5 minut
+    float timeLeft = LEVEL_TIME;
+
+    // --- Bonus za czas po wygranej ---
+    float bonusRemaining = 0.f;   // sekund do odliczenia
+    int   bonusEarned    = 0;     // punkty juz przyznane
+    static constexpr float BONUS_DRAIN_RATE = 60.f; // sekund/sekunde (szybkie odliczanie)
+
+    // --- Screen shake ---
+    float shakeTimer     = 0.f;
+    static constexpr float SHAKE_DURATION  = 0.4f;
+    static constexpr float SHAKE_MAGNITUDE = 6.f;
+
+    // --- Kamera ---
+    const sf::Vector2f viewSize(static_cast<float>(window.getSize().x),
+                                static_cast<float>(window.getSize().y));
+    const float maxCameraCenterX = std::max(viewSize.x / 2.f,
+                                            levelWidth - viewSize.x / 2.f);
+
+    sf::View gameView(sf::FloatRect({ 0.f, 0.f }, viewSize));
+    gameView.setCenter(viewSize / 2.f);
+    const sf::View uiView = window.getDefaultView();
+
+    constexpr float CAMERA_LERP = 5.f;
 
     sf::Clock clock;
 
-    const sf::Vector2f viewSize(
-        static_cast<float>(window.getSize().x),
-        static_cast<float>(window.getSize().y));
-    const float maxCameraCenterX = std::max(viewSize.x / 2.f,
-        levelWidth - viewSize.x / 2.f);
-
-    sf::View view(sf::FloatRect({ 0.f, 0.f }, viewSize));
-    view.setCenter(viewSize / 2.f);
-    const sf::View uiView = window.getDefaultView();
-
-    constexpr float cameraLerpSpeed = 5.f;
-
+    // ================================================================
+    //  GAME LOOP
+    // ================================================================
     while (window.isOpen()) {
+
+        // --- Eventy ---
         while (const std::optional event = window.pollEvent()) {
-            if (event->is<sf::Event::Closed>())
-                window.close();
+            if (event->is<sf::Event::Closed>()) window.close();
             if (const auto* key = event->getIf<sf::Event::KeyPressed>()) {
                 if (key->code == sf::Keyboard::Key::Escape)
                     window.close();
+
+                // Restart po Game Over lub po zakonczeniu ekranu wygranej
                 if (key->code == sf::Keyboard::Key::R &&
                     gameState != GameState::Playing) {
                     player = Player();
                     enemies.clear();
                     enemies.emplace_back(sf::Vector2f(400.f, 380.f));
                     enemies.emplace_back(sf::Vector2f(600.f, 380.f));
-                    gameState = GameState::Playing;
+                    killCount      = 0;
+                    timeLeft       = LEVEL_TIME;
+                    bonusRemaining = 0.f;
+                    bonusEarned    = 0;
+                    gameState      = GameState::Playing;
                 }
             }
         }
 
         const float dt = clock.restart().asSeconds();
 
-        // --- UPDATE ---
+        // ============================================================
+        //  UPDATE
+        // ============================================================
         if (gameState == GameState::Playing) {
-        player.update(dt);
-        player.resolveCollisions(tileMap);
 
-        for (Enemy& enemy : enemies)
-            enemy.update(dt, tileMap);
-
-        // --- Kolizje gracza z wrogami ---
-        for (Enemy& enemy : enemies) {
-            if (!enemy.isAlive()) continue;
-
-            bool stompedFromAbove = enemy.checkCollisionWithPlayer(player);
-            if (stompedFromAbove) {
-                enemy.kill();
-                player.addScore(100);
+            // --- Odliczanie czasu ---
+            timeLeft -= dt;
+            if (timeLeft <= 0.f) {
+                timeLeft = 0.f;
+                player.loseLife();   // czas minął = śmierć
             }
-            else if (enemy.getBounds().findIntersection(player.getBounds())) {
-                player.loseLife();
+
+            // --- Gracz ---
+            player.update(dt);
+            player.resolveCollisions(tileMap);
+
+            // Screen shake — odpalany przez justDied()
+            if (player.justDied()) {
+                shakeTimer = SHAKE_DURATION;
+                player.clearJustDied();
             }
+
+            // --- Wrogowie ---
+            for (Enemy& enemy : enemies)
+                enemy.update(dt, tileMap);
+
+            // --- Kolizje gracz / wrogowie ---
+            for (Enemy& enemy : enemies) {
+                if (!enemy.isAlive()) continue;
+                if (enemy.checkCollisionWithPlayer(player)) {
+                    enemy.kill();
+                    player.addScore(100);
+                    ++killCount;
+                } else if (enemy.getBounds().findIntersection(player.getBounds())) {
+                    player.loseLife();
+                    if (player.justDied()) {
+                        shakeTimer = SHAKE_DURATION;
+                        player.clearJustDied();
+                    }
+                }
+            }
+
+            // --- Kamera (lerp) ---
+            const sf::FloatRect pb = player.getBounds();
+            float targetX = pb.position.x + pb.size.x / 2.f;
+            targetX = std::clamp(targetX, viewSize.x / 2.f, maxCameraCenterX);
+
+            sf::Vector2f center = gameView.getCenter();
+            const float lerp = std::min(1.f, CAMERA_LERP * dt);
+            center.x += (targetX - center.x) * lerp;
+            center.y  = viewSize.y / 2.f;
+
+            // Screen shake — losowe przesuniecie kamery
+            shakeTimer = std::max(0.f, shakeTimer - dt);
+            if (shakeTimer > 0.f) {
+                const float t = shakeTimer / SHAKE_DURATION;  // 1->0
+                const float mag = SHAKE_MAGNITUDE * t;
+                center.x += (std::rand() % 2 == 0 ? 1 : -1) * mag;
+                center.y += (std::rand() % 2 == 0 ? 1 : -1) * mag;
+            }
+
+            gameView.setCenter(center);
+
+            // --- Warunki konca gry ---
+            if (player.getLives() <= 0 && !player.isDying())
+                gameState = GameState::GameOver;
+
+            if (goalFlag.checkCollisionWithPlayer(player)) {
+                gameState      = GameState::Win;
+                bonusRemaining = timeLeft;   // zamroz czas jako bonus
+                bonusEarned    = 0;
+                timeLeft       = 0.f;
+            }
+
+        } // end Playing
+
+        // --- Odliczanie bonusu po wygranej ---
+        if (gameState == GameState::Win && bonusRemaining > 0.f) {
+            const float drain = std::min(bonusRemaining, BONUS_DRAIN_RATE * dt);
+            bonusRemaining -= drain;
+            const int pts    = static_cast<int>(drain * 100.f);
+            bonusEarned    += pts;
+            player.addScore(pts);
+
+            if (bonusRemaining < 0.5f) bonusRemaining = 0.f;  // snap do 0
         }
 
-        // --- Kamera ---
-        const sf::FloatRect playerBounds = player.getBounds();
-        float targetCenterX = playerBounds.position.x + playerBounds.size.x / 2.f;
-        if (targetCenterX < viewSize.x / 2.f)  targetCenterX = viewSize.x / 2.f;
-        if (targetCenterX > maxCameraCenterX)   targetCenterX = maxCameraCenterX;
+        // --- Tytul okna ---
+        window.setTitle("Mario Contra 2 | zycia: " + std::to_string(player.getLives())
+                        + " | pkt: " + std::to_string(player.getScore()));
 
-        sf::Vector2f center = view.getCenter();
-        const float lerp = std::min(1.f, cameraLerpSpeed * dt);
-        center.x += (targetCenterX - center.x) * lerp;
-        center.y = viewSize.y / 2.f;
-        view.setCenter(center);
-
-        // sprawdz game over
-        if (player.getLives() <= 0 && !player.isDying())
-            gameState = GameState::GameOver;
-
-        // sprawdz wygranie
-        if (goalFlag.checkCollisionWithPlayer(player))
-            gameState = GameState::Win;
-
-        } // koniec if (gameState == Playing)
-
-        window.setTitle(
-            "Mario Contra 2 | zycia: " + std::to_string(player.getLives())
-            + " | pkt: " + std::to_string(player.getScore()));
-
-        // --- DRAW ---
+        // ============================================================
+        //  DRAW
+        // ============================================================
         window.clear(sf::Color(135, 206, 235));
-        window.setView(view);
+
+        // --- Swiat gry (z kamera) ---
+        window.setView(gameView);
         drawTileMap(window, tileMap, tileTextures);
         goalFlag.draw(window);
-        for (Enemy& enemy : enemies)
-            enemy.draw(window);
+        for (Enemy& enemy : enemies) enemy.draw(window);
         player.draw(window);
 
-        // ekran overlay
+        // --- UI (fixed, bez scrollowania) ---
         window.setView(uiView);
+
+        if (fontLoaded)
+            drawHUD(window, font, player.getLives(), player.getScore(), timeLeft);
+
+        // Overlay stanow
         if (gameState == GameState::GameOver && fontLoaded)
             drawOverlay(window, font, "GAME OVER",
                 "Nacisnij R aby zagrac ponownie", sf::Color::Red);
-        else if (gameState == GameState::Win && fontLoaded)
-            drawOverlay(window, font, "WYGRALES!",
-                "Punkty: " + std::to_string(player.getScore())
-                + "   Nacisnij R aby zagrac ponownie", sf::Color::Yellow);
-        window.setView(view);
+
+        else if (gameState == GameState::Win && bonusRemaining > 0.f && fontLoaded)
+            drawBonusCountdown(window, font, bonusRemaining, bonusEarned);
+
+        else if (gameState == GameState::Win && bonusRemaining <= 0.f && fontLoaded)
+            drawOverlay(window, font, "LEVEL OVER",
+                "Punkty: " + formatScore(player.getScore())
+                + "   Nacisnij R", sf::Color::Yellow);
+
+        // Przywroc widok gry
+        window.setView(gameView);
 
         window.display();
     }

@@ -2,49 +2,38 @@
 #include <algorithm>
 #include <cmath>
 #include <iostream>
-#include <limits>
 
+// ------------------------------------------------------------------ //
+//  Pomocnicza: wyznacz origin na podstawie nieprzezroczystych pikseli  //
+// ------------------------------------------------------------------ //
 namespace {
-
 sf::Vector2f computeVisibleOrigin(const std::string& path) {
     sf::Image image;
     if (!image.loadFromFile(path))
         return {0.f, 0.f};
 
     const sf::Vector2u size = image.getSize();
-    unsigned minX = size.x;
-    unsigned minY = size.y;
-    unsigned maxX = 0;
-    unsigned maxY = 0;
+    unsigned minX = size.x, minY = size.y, maxX = 0, maxY = 0;
     bool found = false;
 
-    for (unsigned y = 0; y < size.y; ++y) {
-        for (unsigned x = 0; x < size.x; ++x) {
-            if (image.getPixel({x, y}).a == 0)
-                continue;
-
-            found = true;
-            minX = std::min(minX, x);
-            minY = std::min(minY, y);
-            maxX = std::max(maxX, x);
-            maxY = std::max(maxY, y);
-        }
-    }
+    for (unsigned y = 0; y < size.y; ++y)
+        for (unsigned x = 0; x < size.x; ++x)
+            if (image.getPixel({x, y}).a > 0) {
+                found = true;
+                minX = std::min(minX, x); maxX = std::max(maxX, x);
+                minY = std::min(minY, y); maxY = std::max(maxY, y);
+            }
 
     if (!found)
         return {size.x / 2.f, static_cast<float>(size.y)};
 
-    return {
-        (minX + maxX + 1) / 2.f,
-        static_cast<float>(maxY + 1)
-    };
+    return { (minX + maxX + 1) / 2.f, static_cast<float>(maxY + 1) };
 }
+} // namespace
 
-}
-
-static constexpr float RUN_FRAME_TIME = 0.15f;
-static constexpr float VELOCITY_EPSILON = 0.1f;
-static constexpr float GROUND_CHECK_EPSILON = 0.5f;
+static constexpr float RUN_FRAME_TIME    = 0.15f;
+static constexpr float VELOCITY_EPSILON  = 0.1f;
+static constexpr float GROUND_EPSILON    = 0.5f;
 
 // ------------------------------------------------------------------ //
 //  Konstruktor                                                          //
@@ -65,44 +54,38 @@ Player::Player()
     m_shape.setPosition(m_spawnPoint);
 
     m_texturesLoaded = loadTextures();
-    if (m_texturesLoaded) {
+    if (m_texturesLoaded)
         setState(PlayerState::Idle);
-    } else {
+    else
         m_shape.setFillColor(sf::Color::Red);
-    }
 }
 
 // ------------------------------------------------------------------ //
-//  Ladowanie tekstur — osobne wywolania, bez tablicy referencji        //
+//  Ladowanie tekstur                                                    //
 // ------------------------------------------------------------------ //
 bool Player::loadTextures() {
     bool ok = true;
+    auto load = [&](sf::Texture& tex, sf::Vector2f& origin, const char* path) {
+        if (!tex.loadFromFile(path)) {
+            std::cerr << "[Player] brak: " << path << "\n";
+            ok = false;
+        } else {
+            origin = computeVisibleOrigin(path);
+        }
+    };
 
-    if (!m_texIdle .loadFromFile("assets/static.png"))
-        { std::cerr << "[Player] brak: assets/static.png\n";      ok = false; }
-    if (!m_texRunR1.loadFromFile("assets/right_run_1.png"))
-        { std::cerr << "[Player] brak: assets/right_run_1.png\n"; ok = false; }
-    if (!m_texRunR2.loadFromFile("assets/right_run_2.png"))
-        { std::cerr << "[Player] brak: assets/right_run_2.png\n"; ok = false; }
-    if (!m_texJump .loadFromFile("assets/jump.png"))
-        { std::cerr << "[Player] brak: assets/jump.png\n";        ok = false; }
-    if (!m_texCrawl.loadFromFile("assets/crawl.png"))
-        { std::cerr << "[Player] brak: assets/crawl.png\n";       ok = false; }
-    if (!m_texDeath.loadFromFile("assets/death.png"))
-        { std::cerr << "[Player] brak: assets/death.png\n";       ok = false; }
-
-    m_originIdle  = computeVisibleOrigin("assets/static.png");
-    m_originRunR1  = computeVisibleOrigin("assets/right_run_1.png");
-    m_originRunR2  = computeVisibleOrigin("assets/right_run_2.png");
-    m_originJump   = computeVisibleOrigin("assets/jump.png");
-    m_originCrawl  = computeVisibleOrigin("assets/crawl.png");
-    m_originDeath  = computeVisibleOrigin("assets/death.png");
+    load(m_texIdle,  m_originIdle,  "assets/static.png");
+    load(m_texRunR1, m_originRunR1, "assets/right_run_1.png");
+    load(m_texRunR2, m_originRunR2, "assets/right_run_2.png");
+    load(m_texJump,  m_originJump,  "assets/jump.png");
+    load(m_texCrawl, m_originCrawl, "assets/crawl.png");
+    load(m_texDeath, m_originDeath, "assets/death.png");
 
     return ok;
 }
 
 // ------------------------------------------------------------------ //
-//  Ustawienie tekstury + origin na dolny srodek                        //
+//  Ustawienie tekstury + origin                                         //
 // ------------------------------------------------------------------ //
 void Player::setTextureWithOrigin(sf::Texture& tex, const sf::Vector2f& origin) {
     m_sprite.emplace(tex);
@@ -110,12 +93,10 @@ void Player::setTextureWithOrigin(sf::Texture& tex, const sf::Vector2f& origin) 
 }
 
 // ------------------------------------------------------------------ //
-//  Zmiana stanu                                                         //
+//  Zmiana stanu animacji                                                //
 // ------------------------------------------------------------------ //
 void Player::setState(PlayerState newState) {
-    if (newState == m_state)
-        return;
-
+    if (newState == m_state) return;
     m_state = newState;
 
     switch (m_state) {
@@ -145,12 +126,11 @@ void Player::setState(PlayerState newState) {
         m_sprite->setScale({ 1.f, 1.f });
         break;
     }
-
     applySpriteToHitbox();
 }
 
 // ------------------------------------------------------------------ //
-//  Synchronizacja pozycji sprajta z hitboxem                           //
+//  Synchronizacja sprajta z hitboxem                                   //
 // ------------------------------------------------------------------ //
 void Player::applySpriteToHitbox() {
     if (!m_sprite) return;
@@ -162,64 +142,66 @@ void Player::applySpriteToHitbox() {
 }
 
 // ------------------------------------------------------------------ //
-//  Aktualizacja animacji                                                //
+//  Animacja                                                             //
 // ------------------------------------------------------------------ //
 void Player::updateAnimation(float dt) {
     if (!m_texturesLoaded) return;
+    if (m_state == PlayerState::Dead) { applySpriteToHitbox(); return; }
 
     PlayerState target;
     const bool movingX = std::abs(m_velocity.x) >= VELOCITY_EPSILON;
-    const bool movingY = std::abs(m_velocity.y) >= VELOCITY_EPSILON;
 
-    if (!m_onGround && movingY)      target = PlayerState::Jump;
+    if (!m_onGround)              target = PlayerState::Jump;
     else if (movingX && m_velocity.x > 0.f) target = PlayerState::RunRight;
     else if (movingX && m_velocity.x < 0.f) target = PlayerState::RunLeft;
-    else                            target = PlayerState::Idle;
-
-    if (m_state == PlayerState::Dead) {
-        applySpriteToHitbox();
-        return;
-    }
+    else                          target = PlayerState::Idle;
 
     if (target == PlayerState::RunRight || target == PlayerState::RunLeft) {
         m_animTimer += dt;
         if (m_animTimer >= RUN_FRAME_TIME) {
             m_animTimer = 0.f;
             m_runFrame  = !m_runFrame;
-            PlayerState previousState = m_state;
-            m_state = PlayerState::Idle;
-            setState(previousState);
+            PlayerState prev = m_state;
+            m_state = PlayerState::Idle;   // trick: wymusz odswiezenie klatki
+            setState(prev);
         }
     } else {
         m_animTimer = 0.f;
         m_runFrame  = false;
     }
 
-    if (target != m_state)
-        setState(target);
-    else
-        applySpriteToHitbox();
+    if (target != m_state) setState(target);
+    else                   applySpriteToHitbox();
 }
 
 // ------------------------------------------------------------------ //
 //  Update                                                               //
 // ------------------------------------------------------------------ //
 void Player::update(float dt) {
-    // Jesli gracz jest w trakcie animacji smierci — czekaj, potem respawnuj
+    m_justDied = false;  // zeruj impuls co klatke
+
+    // ============================================================
+    // TRYB SMIERCI — brak inputu, brak kolizji, swobodny lot
+    // ============================================================
     if (m_isDying) {
         m_deathTimer -= dt;
+
+        // Grawitacja dziala — postac leci w gore, potem spada z ekranu
+        m_velocity.y += GRAVITY * dt;
+        m_shape.move(m_velocity * dt);
+        if (m_texturesLoaded) applySpriteToHitbox();
+
         if (m_deathTimer <= 0.f) {
             m_isDying = false;
-
-            if (m_lives > 0) {
-                respawn();
-            }
+            if (m_lives > 0) respawn();
+            // jesli lives == 0 — main.cpp przelacza na GameOver
         }
-
-        applySpriteToHitbox();
-        return; // blokuj input i grawitacje podczas animacji smierci
+        return;
     }
 
+    // ============================================================
+    // TRYB NORMALNY
+    // ============================================================
     m_velocity.x = 0.f;
     applyGravity(dt);
     handleInput(dt);
@@ -233,41 +215,32 @@ void Player::update(float dt) {
 void Player::applyGravity(float dt) {
     if (m_onGround) return;
     m_velocity.y += GRAVITY * dt;
-    if (m_velocity.y > MAX_FALL)
-        m_velocity.y = MAX_FALL;
+    if (m_velocity.y > MAX_FALL) m_velocity.y = MAX_FALL;
 }
 
 // ------------------------------------------------------------------ //
 //  Input                                                                //
 // ------------------------------------------------------------------ //
 void Player::handleInput(float dt) {
-    float speed = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::LShift)
-                  ? SPRINT_SPEED : MOVE_SPEED;
+    const float speed = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::LShift)
+                        ? SPRINT_SPEED : MOVE_SPEED;
 
     int horizontal = 0;
-
-    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Left) ||
-        sf::Keyboard::isKeyPressed(sf::Keyboard::Key::A))
-        --horizontal;
-
+    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Left)  ||
+        sf::Keyboard::isKeyPressed(sf::Keyboard::Key::A))     --horizontal;
     if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Right) ||
-        sf::Keyboard::isKeyPressed(sf::Keyboard::Key::D))
-        ++horizontal;
-
+        sf::Keyboard::isKeyPressed(sf::Keyboard::Key::D))     ++horizontal;
     m_velocity.x = horizontal * speed;
 
     if ((sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Down) ||
          sf::Keyboard::isKeyPressed(sf::Keyboard::Key::S))
         && m_onGround && m_texturesLoaded)
-    {
         setState(PlayerState::Crawl);
-    }
 
     if ((sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Space) ||
          sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Up)    ||
          sf::Keyboard::isKeyPressed(sf::Keyboard::Key::W))
-        && m_onGround)
-    {
+        && m_onGround) {
         m_velocity.y = JUMP_FORCE;
         m_onGround   = false;
     }
@@ -281,17 +254,17 @@ void Player::applyMovement(float dt) {
 }
 
 // ------------------------------------------------------------------ //
-//  Kolizje z tilemap                                                    //
+//  Kolizje z tilemap — pomijane podczas animacji smierci               //
 // ------------------------------------------------------------------ //
 void Player::resolveCollisions(const TileMap& tileMap) {
-    const float TS = TileMap::TILE_SIZE;
+    // Podczas smierci postac leci swobodnie — brak kolizji
+    if (m_isDying) return;
 
+    const float TS      = TileMap::TILE_SIZE;
     bool landedOnGround = false;
-    bool resolved = true;
-    m_onGround = false;
+    m_onGround          = false;
 
-    for (int iteration = 0; resolved && iteration < 8; ++iteration) {
-        resolved = false;
+    for (int iter = 0; iter < 8; ++iter) {
         sf::FloatRect b = m_shape.getGlobalBounds();
 
         const int leftCol   = static_cast<int>(std::floor(b.position.x / TS));
@@ -299,82 +272,64 @@ void Player::resolveCollisions(const TileMap& tileMap) {
         const int topRow    = static_cast<int>(std::floor(b.position.y / TS));
         const int bottomRow = static_cast<int>(std::floor((b.position.y + b.size.y - 0.001f) / TS));
 
+        bool resolved = false;
         for (int row = topRow; row <= bottomRow && !resolved; ++row) {
-            for (int col = leftCol; col <= rightCol; ++col) {
-                if (!tileMap.isSolid(col, row))
-                    continue;
+            for (int col = leftCol; col <= rightCol && !resolved; ++col) {
+                if (!tileMap.isSolid(col, row)) continue;
 
-                const sf::FloatRect tileBounds(
-                    { col * TS, row * TS },
-                    { TS, TS });
+                sf::FloatRect tileBounds({ col * TS, row * TS }, { TS, TS });
+                auto intersection = b.findIntersection(tileBounds);
+                if (!intersection) continue;
 
-                const std::optional<sf::FloatRect> intersection = b.findIntersection(tileBounds);
-                if (!intersection)
-                    continue;
-
-                const float playerCenterX = b.position.x + b.size.x / 2.f;
-                const float tileCenterX   = tileBounds.position.x + tileBounds.size.x / 2.f;
-                const float playerCenterY = b.position.y + b.size.y / 2.f;
-                const float tileCenterY   = tileBounds.position.y + tileBounds.size.y / 2.f;
+                const float pcx = b.position.x + b.size.x / 2.f;
+                const float tcx = tileBounds.position.x + tileBounds.size.x / 2.f;
+                const float pcy = b.position.y + b.size.y / 2.f;
+                const float tcy = tileBounds.position.y + tileBounds.size.y / 2.f;
 
                 if (intersection->size.x < intersection->size.y) {
-                    if (playerCenterX < tileCenterX) {
-                        m_shape.move({ -intersection->size.x, 0.f });
-                    } else {
-                        m_shape.move({ intersection->size.x, 0.f });
-                    }
+                    m_shape.move({ pcx < tcx ? -intersection->size.x
+                                              :  intersection->size.x, 0.f });
                     m_velocity.x = 0.f;
                 } else {
-                    if (playerCenterY < tileCenterY) {
-                        m_shape.setPosition({
-                            b.position.x,
-                            tileBounds.position.y - b.size.y
-                        });
-                        m_velocity.y = 0.f;
+                    if (pcy < tcy) {
+                        m_shape.setPosition({ b.position.x,
+                                              tileBounds.position.y - b.size.y });
+                        m_velocity.y   = 0.f;
                         landedOnGround = true;
                     } else {
                         m_shape.move({ 0.f, intersection->size.y });
                         m_velocity.y = 0.f;
                     }
                 }
-
                 resolved = true;
-                break;
             }
-
-            
         }
+        if (!resolved) break;
     }
 
     sf::FloatRect b = m_shape.getGlobalBounds();
-    const float footY = b.position.y + b.size.y + GROUND_CHECK_EPSILON;
-    const bool hasGroundSupport =
-        tileMap.isSolidAtPixel({ b.position.x + 2.f, footY }) ||
+    const float footY = b.position.y + b.size.y + GROUND_EPSILON;
+    const bool groundSupport =
+        tileMap.isSolidAtPixel({ b.position.x + 2.f,            footY }) ||
         tileMap.isSolidAtPixel({ b.position.x + b.size.x - 2.f, footY });
 
-    m_onGround = landedOnGround || hasGroundSupport;
+    m_onGround = landedOnGround || groundSupport;
     if (m_onGround && std::abs(m_velocity.y) < VELOCITY_EPSILON)
         m_velocity.y = 0.f;
 
-    // Wypadniecie z mapy — traci zycie
-    const sf::Vector2f mapSize = tileMap.getSizeInPixels();
-    if (m_shape.getPosition().y > mapSize.y) {
+    // Wypadniecie z mapy
+    if (m_shape.getPosition().y > tileMap.getSizeInPixels().y)
         loseLife();
-    }
 
-    if (m_texturesLoaded)
-        applySpriteToHitbox();
-
+    if (m_texturesLoaded) applySpriteToHitbox();
 }
 
 // ------------------------------------------------------------------ //
 //  Rysowanie                                                            //
 // ------------------------------------------------------------------ //
 void Player::draw(sf::RenderWindow& window) const {
-    if (m_sprite)
-        window.draw(*m_sprite);
-    else
-        window.draw(m_shape);
+    if (m_sprite) window.draw(*m_sprite);
+    else          window.draw(m_shape);
 }
 
 // ------------------------------------------------------------------ //
@@ -391,25 +346,27 @@ int           Player::getScore()    const { return m_score; }
 void Player::addScore(int points) { m_score += points; }
 
 void Player::loseLife() {
-    if (m_isDying) return;
-    if (m_lives <= 0) return;
+    if (m_isDying || m_lives <= 0) return;
 
-    m_isDying = true;
+    m_isDying    = true;
+    m_justDied   = true;          // impuls dla screen shake w main.cpp
     m_deathTimer = DEATH_DELAY;
-    m_velocity = { 0.f, 0.f };
     m_lives--;
+
+    // Death bounce — ostry impuls w gore, grawitacja potem sciagnie w dol
+    m_velocity = { 0.f, -600.f };
 
     if (m_texturesLoaded) setState(PlayerState::Dead);
 }
 
-
 void Player::respawn() {
     m_shape.setPosition(m_spawnPoint);
-    m_velocity = { 0.f, 0.f };
-    m_onGround = false;
-    m_isDying = false;
+    m_velocity  = { 0.f, 0.f };
+    m_onGround  = false;
+    m_isDying   = false;
+    m_justDied  = false;
     if (m_texturesLoaded) {
-        m_state = PlayerState::Idle; // wymus reset stanu
+        m_state = PlayerState::Idle;
         setState(PlayerState::Idle);
     }
 }
