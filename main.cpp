@@ -12,6 +12,7 @@
 #include "TileMap.hpp"
 #include "GoalFlag.hpp"
 #include "GameState.hpp"
+#include "Checkpoint.hpp"
 
 namespace {
 
@@ -293,6 +294,11 @@ int main() {
     enemies.emplace_back(sf::Vector2f(400.f, 380.f));
     enemies.emplace_back(sf::Vector2f(600.f, 380.f));
 
+    std::vector<Checkpoint> checkpoints;
+    checkpoints.emplace_back(sf::Vector2f(300.f, 360.f));
+    checkpoints.emplace_back(sf::Vector2f(900.f, 360.f));
+
+
     GoalFlag goalFlag(sf::Vector2f(levelWidth - 96.f, 352.f));
 
     int killCount = 0;
@@ -352,6 +358,10 @@ int main() {
                     bonusRemaining = 0.f;
                     bonusEarned    = 0;
                     gameState      = GameState::Playing;
+
+                    for (Checkpoint& cp : checkpoints)
+                        cp.reset();
+
                 }
             }
         }
@@ -373,6 +383,12 @@ int main() {
             // --- Gracz ---
             player.update(dt);
             player.resolveCollisions(tileMap);
+
+            for (Checkpoint& cp : checkpoints) {
+                if (cp.checkCollision(player)) {
+                    player.setSpawnPoint(cp.getPosition());
+                }
+            }
 
             // Screen shake — odpalany przez justDied()
             if (player.justDied()) {
@@ -460,6 +476,9 @@ int main() {
         goalFlag.draw(window);
         for (Enemy& enemy : enemies) enemy.draw(window);
         player.draw(window);
+
+        for (const Checkpoint& cp : checkpoints)
+            cp.draw(window);
 
         // --- UI (fixed, bez scrollowania) ---
         window.setView(uiView);

@@ -37,6 +37,8 @@ public:
     bool justDied()       const { return m_justDied; }
     void clearJustDied()        { m_justDied = false; }
 
+    void setSpawnPoint(sf::Vector2f pos) { m_spawnPoint = pos; }
+
 private:
     // --- Smierc ---
     float m_deathTimer = 0.f;
