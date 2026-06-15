@@ -19,6 +19,16 @@ public:
     // Konstruktor — podaj pozycje startowa wroga
     explicit Enemy(sf::Vector2f startPosition);
 
+    // Move constructor — niezbedny bo sf::Sprite trzyma wskaznik do sf::Texture.
+    // Gdy std::vector realokuje pamiec i przenosi Enemy, sprite musi dostac
+    // nowy adres tekstury (ktora tez zostala przesunieta razem z obiektem).
+    Enemy(Enemy&& other) noexcept;
+    Enemy& operator=(Enemy&& other) noexcept;
+
+    // Kopiowanie zabronione (tekstura nie jest kopiowalna w SFML 3)
+    Enemy(const Enemy&)            = delete;
+    Enemy& operator=(const Enemy&) = delete;
+
     // Glowne metody
     void update(float dt, const TileMap& tileMap);
     void draw(sf::RenderWindow& window) const;

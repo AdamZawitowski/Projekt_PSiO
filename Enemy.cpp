@@ -35,6 +35,51 @@ Enemy::Enemy(sf::Vector2f startPosition)
 }
 
 // ------------------------------------------------------------------ //
+//  Move constructor i move assignment                                   //
+//  Po przeniesieniu Enemy w pamieci (np. przez std::vector::emplace_back //
+//  z realokacja) sf::Sprite musi dostac zaktualizowany adres tekstury. //
+// ------------------------------------------------------------------ //
+Enemy::Enemy(Enemy&& other) noexcept
+    : m_shape        (std::move(other.m_shape))
+    , m_velocity     (other.m_velocity)
+    , m_alive        (other.m_alive)
+    , m_movingRight  (other.m_movingRight)
+    , m_texture      (std::move(other.m_texture))
+    , m_textureLoaded(other.m_textureLoaded)
+{
+    if (m_textureLoaded) {
+        // Sprite musi wskazywac na NOWY adres tekstury (po przeniesieniu)
+        m_sprite.emplace(m_texture);
+        sf::Vector2u sz = m_texture.getSize();
+        m_sprite->setOrigin({ sz.x / 2.f, static_cast<float>(sz.y) });
+        // Przywroc skalowanie kierunku
+        m_sprite->setScale(other.m_sprite ? other.m_sprite->getScale()
+                                          : sf::Vector2f(1.f, 1.f));
+        applySpriteToHitbox();
+    }
+}
+
+Enemy& Enemy::operator=(Enemy&& other) noexcept {
+    if (this == &other) return *this;
+    m_shape         = std::move(other.m_shape);
+    m_velocity      = other.m_velocity;
+    m_alive         = other.m_alive;
+    m_movingRight   = other.m_movingRight;
+    m_texture       = std::move(other.m_texture);
+    m_textureLoaded = other.m_textureLoaded;
+    m_sprite.reset();
+    if (m_textureLoaded) {
+        m_sprite.emplace(m_texture);
+        sf::Vector2u sz = m_texture.getSize();
+        m_sprite->setOrigin({ sz.x / 2.f, static_cast<float>(sz.y) });
+        m_sprite->setScale(other.m_sprite ? other.m_sprite->getScale()
+                                          : sf::Vector2f(1.f, 1.f));
+        applySpriteToHitbox();
+    }
+    return *this;
+}
+
+// ------------------------------------------------------------------ //
 //  Synchronizacja pozycji sprajta z hitboxem                           //
 //  Origin sprajta = dolny srodek — wiec pozycja = srodek dolnej       //
 //  krawedzi hitboxa                                                     //

@@ -142,7 +142,8 @@ std::string formatTime(int seconds) {
 }
 
 void drawHUD(sf::RenderWindow& window, const sf::Font& font,
-             int lives, int score, float timeLeft)
+             int lives, int score, float timeLeft,
+             const sf::Texture& texHeart)
 {
     const float W = static_cast<float>(window.getSize().x);
 
@@ -151,12 +152,15 @@ void drawHUD(sf::RenderWindow& window, const sf::Font& font,
     bar.setFillColor(sf::Color(0, 0, 0, 200));
     window.draw(bar);
 
-    // Ikony zyc (czerwone kwadraty)
-    for (int i = 0; i < lives; ++i) {
-        sf::RectangleShape heart({ 14.f, 14.f });
-        heart.setFillColor(sf::Color(220, 50, 50));
-        heart.setPosition({ 12.f + i * 20.f, 13.f });
-        window.draw(heart);
+    // Ikony zyc — sprajt heart.png skalowany do 28x28px, odstep 40px
+    {
+        sf::Vector2u sz = texHeart.getSize();
+        for (int i = 0; i < lives; ++i) {
+            sf::Sprite heart(texHeart);
+            heart.setScale({ 28.f / sz.x, 28.f / sz.y });
+            heart.setPosition({ 20.f + i * 40.f, 6.f });
+            window.draw(heart);
+        }
     }
 
     // SCORE
@@ -277,6 +281,11 @@ int main() {
     else
         fontLoaded = true;
 
+    // --- Tekstura serduszka do HUD ---
+    sf::Texture texHeart;
+    if (!texHeart.loadFromFile("assets/heart.png"))
+        std::cerr << "[main] brak: assets/heart.png\n";
+
     // --- Mapa ---
     TileMap tileMap;
     if (!tileMap.loadFromFile("level1.txt")) return 1;
@@ -291,10 +300,14 @@ int main() {
     Player player;
 
     std::vector<Enemy> enemies;
+    // reserve zapobiega realokacji przy emplace_back — bez tego vector
+    // moze przeniesc obiekty w pamieci i unieważnic wskazniki sprite->texture
+    enemies.reserve(8);
     enemies.emplace_back(sf::Vector2f(400.f, 380.f));
     enemies.emplace_back(sf::Vector2f(600.f, 380.f));
 
     std::vector<Checkpoint> checkpoints;
+    checkpoints.reserve(8);  // zapobiega realokacji i uniewazneniu wskaznikow sprite->texture
     checkpoints.emplace_back(sf::Vector2f(5280.f, 360.f));
     checkpoints.emplace_back(sf::Vector2f(2496.f, 360.f));
 
@@ -351,6 +364,7 @@ int main() {
                     gameState != GameState::Playing) {
                     player = Player();
                     enemies.clear();
+                    enemies.reserve(8);
                     enemies.emplace_back(sf::Vector2f(400.f, 380.f));
                     enemies.emplace_back(sf::Vector2f(600.f, 380.f));
                     killCount      = 0;
@@ -492,7 +506,7 @@ int main() {
         window.setView(uiView);
 
         if (fontLoaded)
-            drawHUD(window, font, player.getLives(), player.getScore(), timeLeft);
+            drawHUD(window, font, player.getLives(), player.getScore(), timeLeft, texHeart);
 
         // Overlay stanow
         if (gameState == GameState::GameOver && fontLoaded)
