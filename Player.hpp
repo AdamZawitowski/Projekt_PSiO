@@ -39,6 +39,13 @@ public:
 
     void setSpawnPoint(sf::Vector2f pos) { m_spawnPoint = pos; }
 
+    void bounce() {
+        m_velocity.y = JUMP_FORCE * 0.7f;}
+
+    bool isInvincible() const { return m_invincible; }
+
+    sf::Vector2f getVelocity() const { return m_velocity; }
+
 private:
     // --- Smierc ---
     float m_deathTimer = 0.f;
@@ -82,4 +89,8 @@ private:
     float       m_animTimer;
     bool        m_runFrame;
     bool        m_texturesLoaded;
+
+    float m_invincibleTimer = 0.f;
+    bool  m_invincible = false;
+
 };

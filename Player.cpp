@@ -147,6 +147,17 @@ void Player::applySpriteToHitbox() {
 //  Animacja                                                             //
 // ------------------------------------------------------------------ //
 void Player::updateAnimation(float dt) {
+    if (m_invincible) {
+        float t = std::fmod(m_invincibleTimer, 0.2f);
+        bool visible = t < 0.1f;
+        if (m_sprite)
+            m_sprite->setColor(visible ? sf::Color(255, 255, 255, 255)
+                : sf::Color(255, 255, 255, 80));
+    }
+    else {
+        if (m_sprite)
+            m_sprite->setColor(sf::Color(255, 255, 255, 255));
+    }
     if (!m_texturesLoaded) return;
     if (m_state == PlayerState::Dead) { applySpriteToHitbox(); return; }
     if (m_isCrouching) { applySpriteToHitbox(); return; }
@@ -211,6 +222,14 @@ void Player::update(float dt) {
     // ============================================================
     // TRYB NORMALNY
     // ============================================================
+
+    if (m_invincible) {
+        m_invincibleTimer -= dt;
+        if (m_invincibleTimer <= 0.f) {
+            m_invincible = false;
+        }
+    }
+
     m_velocity.x = 0.f;
     applyGravity(dt);
     handleInput(dt);
@@ -403,4 +422,8 @@ void Player::respawn() {
         m_state = PlayerState::Idle;
         setState(PlayerState::Idle);
     }
+
+    m_invincible = true;
+    m_invincibleTimer = 10.0f;
+
 }

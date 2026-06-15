@@ -403,17 +403,25 @@ int main() {
             // --- Kolizje gracz / wrogowie ---
             for (Enemy& enemy : enemies) {
                 if (!enemy.isAlive()) continue;
-                if (enemy.checkCollisionWithPlayer(player)) {
+
+                if (enemy.checkCollisionWithPlayer(player) && player.getVelocity().y > 0.f) {
                     enemy.kill();
                     player.addScore(100);
                     ++killCount;
-                } else if (enemy.getBounds().findIntersection(player.getBounds())) {
+                    player.bounce();
+                }
+
+                else if (enemy.getBounds().findIntersection(player.getBounds())) {
+                    if (player.isInvincible())
+                        continue;
+
                     player.loseLife();
                     if (player.justDied()) {
                         shakeTimer = SHAKE_DURATION;
                         player.clearJustDied();
                     }
                 }
+
             }
 
             // --- Kamera (lerp) ---
