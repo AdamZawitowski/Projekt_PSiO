@@ -424,6 +424,6 @@ void Player::respawn() {
     }
 
     m_invincible = true;
-    m_invincibleTimer = 10.0f;
+    m_invincibleTimer = 1.5f;
 
 }
