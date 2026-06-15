@@ -13,6 +13,7 @@
 #include "GoalFlag.hpp"
 #include "GameState.hpp"
 #include "Checkpoint.hpp"
+#include "Item.hpp"
 
 namespace {
 
@@ -306,6 +307,10 @@ int main() {
     enemies.emplace_back(sf::Vector2f(400.f, 380.f));
     enemies.emplace_back(sf::Vector2f(600.f, 380.f));
 
+    std::vector<Item> items;
+    player.setItemList(&items);
+    items.reserve(32);
+
     std::vector<Checkpoint> checkpoints;
     checkpoints.reserve(8);  // zapobiega realokacji i uniewazneniu wskaznikow sprite->texture
     checkpoints.emplace_back(sf::Vector2f(5280.f, 360.f));
@@ -404,6 +409,9 @@ int main() {
                 }
             }
 
+            for (Item& it : items)
+                it.update(dt);
+
             // Screen shake — odpalany przez justDied()
             if (player.justDied()) {
                 shakeTimer = SHAKE_DURATION;
@@ -417,6 +425,13 @@ int main() {
             // --- Kolizje gracz / wrogowie ---
             for (Enemy& enemy : enemies) {
                 if (!enemy.isAlive()) continue;
+
+                for (Item& it : items) {
+                    if (!it.isCollected() && it.getBounds().findIntersection(player.getBounds())) {
+                        it.collect();
+                        player.addScore(100);
+                    }
+                }
 
                 if (enemy.checkCollisionWithPlayer(player) && player.getVelocity().y > 0.f) {
                     enemy.kill();
@@ -491,6 +506,9 @@ int main() {
         //  DRAW
         // ============================================================
         window.clear(sf::Color(135, 206, 235));
+
+        for (Item& it : items)
+            it.draw(window);
 
         // --- Swiat gry (z kamera) ---
         window.setView(gameView);

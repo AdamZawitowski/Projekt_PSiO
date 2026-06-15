@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <cmath>
 #include <iostream>
+#include "Item.hpp"
 
 // ------------------------------------------------------------------ //
 //  Pomocnicza: wyznacz origin na podstawie nieprzezroczystych pikseli  //
@@ -48,6 +49,8 @@ Player::Player()
     , m_animTimer(0.f)
     , m_runFrame(false)
     , m_texturesLoaded(false)
+    , m_itemsRef(nullptr)
+
 {
     m_shape.setSize({ HITBOX_W, HITBOX_H });
     m_shape.setFillColor(sf::Color::Transparent);
@@ -303,20 +306,20 @@ void Player::applyMovement(float dt) {
 // ------------------------------------------------------------------ //
 //  Kolizje z tilemap — pomijane podczas animacji smierci               //
 // ------------------------------------------------------------------ //
-void Player::resolveCollisions(const TileMap& tileMap) {
+void Player::resolveCollisions(TileMap& tileMap) {
     // Podczas smierci postac leci swobodnie — brak kolizji
     if (m_isDying) return;
 
-    const float TS      = TileMap::TILE_SIZE;
+    const float TS = TileMap::TILE_SIZE;
     bool landedOnGround = false;
-    m_onGround          = false;
+    m_onGround = false;
 
     for (int iter = 0; iter < 8; ++iter) {
         sf::FloatRect b = m_shape.getGlobalBounds();
 
-        const int leftCol   = static_cast<int>(std::floor(b.position.x / TS));
-        const int rightCol  = static_cast<int>(std::floor((b.position.x + b.size.x - 0.001f) / TS));
-        const int topRow    = static_cast<int>(std::floor(b.position.y / TS));
+        const int leftCol = static_cast<int>(std::floor(b.position.x / TS));
+        const int rightCol = static_cast<int>(std::floor((b.position.x + b.size.x - 0.001f) / TS));
+        const int topRow = static_cast<int>(std::floor(b.position.y / TS));
         const int bottomRow = static_cast<int>(std::floor((b.position.y + b.size.y - 0.001f) / TS));
 
         bool resolved = false;
@@ -335,19 +338,28 @@ void Player::resolveCollisions(const TileMap& tileMap) {
 
                 if (intersection->size.x < intersection->size.y) {
                     m_shape.move({ pcx < tcx ? -intersection->size.x
-                                              :  intersection->size.x, 0.f });
+                                              : intersection->size.x, 0.f });
                     m_velocity.x = 0.f;
-                } else {
+                }
+                else {
                     if (pcy < tcy) {
                         m_shape.setPosition({ b.position.x,
                                               tileBounds.position.y - b.size.y });
-                        m_velocity.y   = 0.f;
+                        m_velocity.y = 0.f;
                         landedOnGround = true;
-                    } else {
+                    }
+                    else {
                         m_shape.move({ 0.f, intersection->size.y });
                         m_velocity.y = 0.f;
+
+                        const Tile* tilePtr = tileMap.getTileAt(col * TS, row * TS);
+                        if (tilePtr && tilePtr->type == TileType::QuestionBlock && !tilePtr->activated) {
+                            if (m_itemsRef)
+                                tileMap.hitQuestionBlock(col, row, *m_itemsRef);
+                        }
                     }
                 }
+
                 resolved = true;
             }
         }
@@ -370,6 +382,7 @@ void Player::resolveCollisions(const TileMap& tileMap) {
 
     if (m_texturesLoaded) applySpriteToHitbox();
 }
+
 
 // ------------------------------------------------------------------ //
 //  Rysowanie                                                            //

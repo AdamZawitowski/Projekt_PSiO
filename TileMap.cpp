@@ -1,5 +1,5 @@
 #include "TileMap.hpp"
-
+#include <vector>
 #include <fstream>
 #include <string>
 
@@ -212,4 +212,22 @@ void TileMap::rebuildTile(int row, int col) {
     tile.sprite.emplace(m_tileTexture);
     tile.sprite->setPosition({col * TILE_SIZE, row * TILE_SIZE});
     tile.sprite->setColor(colorFor(tile.type));
+}
+
+bool TileMap::hitQuestionBlock(int col, int row, std::vector<Item>& items) {
+    if (!isSolid(col, row)) return false;
+
+    Tile& tile = m_level[row][col];
+    if (tile.type != TileType::QuestionBlock) return false;
+    if (tile.activated) return false;
+
+    tile.activated = true;
+    tile.type = TileType::MetalBlock; // zmienia się na pusty blok
+    rebuildTile(row, col);
+
+    // Wypada moneta
+    sf::Vector2f pos(col * TILE_SIZE + 6.f, row * TILE_SIZE - 10.f);
+    items.emplace_back(pos, ItemType::Coin);
+
+    return true;
 }

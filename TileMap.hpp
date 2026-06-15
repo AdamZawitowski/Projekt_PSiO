@@ -5,6 +5,7 @@
 #include <optional>
 #include <string>
 #include <vector>
+#include "Item.hpp"
 
 enum class TileType : std::uint8_t {
     Empty = 0,
@@ -52,6 +53,8 @@ public:
 
     sf::Vector2u getSizeInTiles() const;
     sf::Vector2f getSizeInPixels() const;
+
+    bool hitQuestionBlock(int col, int row, std::vector<Item>& items);
 
 private:
     static TileType charToTile(char cell);

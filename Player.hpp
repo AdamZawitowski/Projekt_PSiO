@@ -1,7 +1,9 @@
 #pragma once
 #include <SFML/Graphics.hpp>
 #include <optional>
+#include <vector>
 #include "TileMap.hpp"
+#include "Item.hpp"
 
 class Player {
 public:
@@ -20,7 +22,7 @@ public:
 
     void update(float dt);
     void draw(sf::RenderWindow& window) const;
-    void resolveCollisions(const TileMap& tileMap);
+    void resolveCollisions(TileMap& tileMap);
 
     sf::FloatRect getBounds()   const;
     sf::Vector2f  getPosition() const;
@@ -45,6 +47,8 @@ public:
     bool isInvincible() const { return m_invincible; }
 
     sf::Vector2f getVelocity() const { return m_velocity; }
+
+    void setItemList(std::vector<Item>* items) { m_itemsRef = items; }
 
 private:
     // --- Smierc ---
@@ -93,4 +97,5 @@ private:
     float m_invincibleTimer = 0.f;
     bool  m_invincible = false;
 
+    std::vector<Item>* m_itemsRef = nullptr;
 };
