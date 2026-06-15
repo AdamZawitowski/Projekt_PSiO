@@ -264,7 +264,8 @@ void Player::handleInput(float dt) {
 
     }
 
-    if ((sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Space) ||
+    if (!m_isCrouching && 
+        (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Space) ||
          sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Up)    ||
          sf::Keyboard::isKeyPressed(sf::Keyboard::Key::W))
         && m_onGround) {
