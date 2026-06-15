@@ -295,8 +295,8 @@ int main() {
     enemies.emplace_back(sf::Vector2f(600.f, 380.f));
 
     std::vector<Checkpoint> checkpoints;
-    checkpoints.emplace_back(sf::Vector2f(300.f, 360.f));
-    checkpoints.emplace_back(sf::Vector2f(900.f, 360.f));
+    checkpoints.emplace_back(sf::Vector2f(5280.f, 360.f));
+    checkpoints.emplace_back(sf::Vector2f(2496.f, 360.f));
 
 
     GoalFlag goalFlag(sf::Vector2f(levelWidth - 96.f, 352.f));
