@@ -5,6 +5,7 @@
 #include <vector>
 #include "TileMap.hpp"
 #include "Item.hpp"
+#include "Bullet.hpp"
 
 class Player {
 public:
@@ -54,6 +55,9 @@ public:
 
     void setItemList(std::vector<Item>* items) { m_itemsRef = items; }
 
+    float getFacingDirection() const { return m_facingRight ? 1.f : -1.f; }
+
+    bool isCrouching() const { return m_isCrouching; }
 private:
     // --- Smierc ---
     float m_deathTimer = 0.f;
@@ -104,6 +108,8 @@ private:
     bool  m_invincible = false;
 
     std::vector<Item>* m_itemsRef = nullptr;
+
+    bool m_facingRight = true;
 
     // --- Audio ---
     bool m_jumpAudioLoaded = false;

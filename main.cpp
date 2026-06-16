@@ -16,6 +16,7 @@
 #include "GameState.hpp"
 #include "Checkpoint.hpp"
 #include "Item.hpp"
+#include "Bullet.hpp"
 
 namespace {
 
@@ -349,6 +350,11 @@ int main() {
     player.setItemList(&items);
     items.reserve(32);
 
+    std::vector<Bullet> bullets;
+    bullets.reserve(32);
+    float shootCooldown = 0.f;              
+    static constexpr float SHOOT_DELAY = 0.25f;
+
     std::vector<Checkpoint> checkpoints;
     checkpoints.reserve(8);  // zapobiega realokacji i uniewazneniu wskaznikow sprite->texture
     checkpoints.emplace_back(sf::Vector2f(5280.f, 360.f));
@@ -411,7 +417,12 @@ int main() {
                     player = Player();
                     player.setItemList(&items);
                     items.clear();
+
                     tileMap.loadFromFile("level1.txt");
+
+                    bullets.clear();
+                    shootCooldown = 0.f;
+
                     enemies.clear();
                     enemies.reserve(8);
                     enemies.emplace_back(sf::Vector2f(400.f, 380.f));
@@ -457,6 +468,59 @@ int main() {
             // --- Gracz ---
             player.update(dt);
             player.resolveCollisions(tileMap);
+
+            shootCooldown -= dt;
+            if (shootCooldown <= 0.f &&
+                (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Z) ||
+                    sf::Keyboard::isKeyPressed(sf::Keyboard::Key::LControl)))
+            {
+                sf::FloatRect pb = player.getBounds();
+                float dir = player.getFacingDirection();
+                if (player.isCrouching())
+                    dir = 1.f;
+                float bulletY;
+
+                if (player.isCrouching()) {
+                    // strzał przy kucaniu
+                    bulletY = pb.position.y + pb.size.y - 8.f;
+                }
+                else {
+                    // strzał przy staniu
+                    bulletY = pb.position.y + pb.size.y - 14.f;
+                }
+
+                sf::Vector2f spawnPos = {
+                    dir > 0.f ? pb.position.x + pb.size.x
+                              : pb.position.x,
+                    bulletY
+                };
+
+                bullets.emplace_back(spawnPos, dir);
+                shootCooldown = SHOOT_DELAY;
+            }
+
+            // --- Update pocisków + kolizje z wrogami ---
+            for (Bullet& bullet : bullets)
+                bullet.update(dt, tileMap);
+
+            for (Bullet& bullet : bullets) {
+                if (!bullet.isActive()) continue;
+                for (Enemy& enemy : enemies) {
+                    if (!enemy.isAlive()) continue;
+                    if (bullet.getBounds().findIntersection(enemy.getBounds())) {
+                        enemy.kill();
+                        bullet.deactivate();
+                        player.addScore(100);
+                        ++killCount;
+                        break;
+                    }
+                }
+            }
+
+            bullets.erase(
+                std::remove_if(bullets.begin(), bullets.end(),
+                    [](const Bullet& b) { return !b.isActive(); }),
+                bullets.end());
 
             for (Checkpoint& cp : checkpoints) {
                 if (cp.checkCollision(player)) {
@@ -598,6 +662,9 @@ int main() {
 
         for (Item& it : items)
             it.draw(window);
+
+        for (Bullet& b : bullets)
+            b.draw(window);
 
         goalFlag.draw(window);
         for (Enemy& enemy : enemies) enemy.draw(window);

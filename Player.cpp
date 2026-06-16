@@ -345,6 +345,9 @@ void Player::handleInput(float dt) {
         sf::Keyboard::isKeyPressed(sf::Keyboard::Key::D))     ++horizontal;
     m_velocity.x = horizontal * speed;
 
+    if (horizontal > 0) m_facingRight = true;
+    if (horizontal < 0) m_facingRight = false;
+
     const bool wantCrouch =
         (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Down) ||
             sf::Keyboard::isKeyPressed(sf::Keyboard::Key::S));
