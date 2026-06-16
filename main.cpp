@@ -476,7 +476,7 @@ int main() {
             {
                 sf::FloatRect pb = player.getBounds();
                 float dir = player.getFacingDirection();
-                if (player.isCrouching())
+                if (player.isCrouching() || !player.isOnGround())
                     dir = 1.f;
                 float bulletY;
 

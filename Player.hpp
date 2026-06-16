@@ -59,6 +59,8 @@ public:
 
     bool isCrouching() const { return m_isCrouching; }
 
+    bool isOnGround() const { return m_onGround; }
+
     void addLife() { m_lives++; }
 private:
     // --- Smierc ---

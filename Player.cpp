@@ -345,9 +345,6 @@ void Player::handleInput(float dt) {
         sf::Keyboard::isKeyPressed(sf::Keyboard::Key::D))     ++horizontal;
     m_velocity.x = horizontal * speed;
 
-    if (horizontal > 0) m_facingRight = true;
-    if (horizontal < 0) m_facingRight = false;
-
     const bool wantCrouch =
         (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Down) ||
             sf::Keyboard::isKeyPressed(sf::Keyboard::Key::S));
@@ -395,13 +392,17 @@ void Player::applyMovement(float dt) {
 // ------------------------------------------------------------------ //
 void Player::updateMovement() {
     const float speed = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::LShift)
-                        ? SPRINT_SPEED : MOVE_SPEED;
+        ? SPRINT_SPEED : MOVE_SPEED;
 
     m_velocity.x = 0.f;
-    if (m_moveLeft)
+    if (m_moveLeft) {
         m_velocity.x -= speed;
-    if (m_moveRight)
+        m_facingRight = false;
+    }
+    if (m_moveRight) {
         m_velocity.x += speed;
+        m_facingRight = true;
+    }
 
     if (m_crouchHeld && !m_isCrouching) {
         m_isCrouching = true;
