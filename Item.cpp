@@ -4,7 +4,7 @@ Item::Item(sf::Vector2f pos, ItemType type)
     : m_type(type), m_velocity(0.f, -150.f)
 {
     m_shape.setSize({ 20.f, 20.f });
-    m_shape.setFillColor(type == ItemType::Coin ? sf::Color::Yellow : sf::Color::Red);
+    m_shape.setFillColor(type == ItemType::Coin ? sf::Color::Yellow : type == ItemType::Heart ? sf::Color(255, 100, 150) : sf::Color::Red);
     m_shape.setPosition(pos);
 }
 

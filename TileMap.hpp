@@ -19,7 +19,8 @@ enum class TileType : std::uint8_t {
 enum class BonusType : std::uint8_t {
     None,
     Coin,
-    Mushroom
+    Mushroom,
+    Heart
 };
 
 struct Tile {

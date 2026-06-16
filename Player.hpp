@@ -58,6 +58,8 @@ public:
     float getFacingDirection() const { return m_facingRight ? 1.f : -1.f; }
 
     bool isCrouching() const { return m_isCrouching; }
+
+    void addLife() { m_lives++; }
 private:
     // --- Smierc ---
     float m_deathTimer = 0.f;

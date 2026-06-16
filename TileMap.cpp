@@ -230,7 +230,12 @@ bool TileMap::hitQuestionBlock(int col, int row, std::vector<Item>& items) {
 
     // Wypada moneta
     sf::Vector2f pos(col * TILE_SIZE + 6.f, row * TILE_SIZE - 10.f);
-    items.emplace_back(pos, ItemType::Coin);
+    int r = std::rand() % 100;
+
+    ItemType drop = (r < 70) ? ItemType::Coin : ItemType::Heart;
+
+    items.emplace_back(pos, drop);
+    items.back().setSourceBlock(col, row);
     items.back().setSourceBlock(col, row);
 
     return true;

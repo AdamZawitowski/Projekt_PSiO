@@ -3,7 +3,8 @@
 
 enum class ItemType {
     Coin,
-    Mushroom
+    Mushroom,
+    Heart
 };
 
 class Item {

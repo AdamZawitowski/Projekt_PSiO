@@ -564,7 +564,15 @@ int main() {
             for (Item& it : items) {
                 if (!it.isCollected() && it.getBounds().findIntersection(player.getBounds())) {
                     it.collect();
-                    player.addScore(100);
+
+                    if (it.getType() == ItemType::Coin) {
+                        player.addScore(100);
+                    }
+                    else if (it.getType() == ItemType::Heart) {
+                        player.addLife();        // ← dodamy za chwilę
+                        player.addScore(300);    // np. więcej punktów
+                    }
+
                 }
             }
 
