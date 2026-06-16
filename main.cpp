@@ -412,6 +412,25 @@ int main() {
             for (Item& it : items)
                 it.update(dt);
 
+            for (Item& it : items) {
+                if (it.isCollected()) continue;
+
+                sf::FloatRect ib = it.getBounds();
+                float footX = ib.position.x + ib.size.x / 2.f;
+                float footY = ib.position.y + ib.size.y + 1.f;
+
+                int col = static_cast<int>(footX / TileMap::TILE_SIZE);
+                int row = static_cast<int>(footY / TileMap::TILE_SIZE);
+
+                if (col == it.m_sourceCol && row == it.m_sourceRow)
+                    continue;
+
+                if (tileMap.isSolid(col, row)) {
+                    float groundY = row * TileMap::TILE_SIZE;
+                    it.snapToGround(groundY);
+                }
+            }
+
             // Screen shake — odpalany przez justDied()
             if (player.justDied()) {
                 shakeTimer = SHAKE_DURATION;

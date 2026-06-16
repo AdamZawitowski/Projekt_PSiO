@@ -2,6 +2,7 @@
 #include <vector>
 #include <fstream>
 #include <string>
+#include "Item.hpp"
 
 bool Tile::isSolid() const {
     return type == TileType::Ground
@@ -228,6 +229,7 @@ bool TileMap::hitQuestionBlock(int col, int row, std::vector<Item>& items) {
     // Wypada moneta
     sf::Vector2f pos(col * TILE_SIZE + 6.f, row * TILE_SIZE - 10.f);
     items.emplace_back(pos, ItemType::Coin);
+    items.back().setSourceBlock(col, row);
 
     return true;
 }
