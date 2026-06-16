@@ -19,6 +19,8 @@ bool TileMap::loadFromFile(const std::string& filename) {
     if (!file)
         return false;
 
+    m_level.clear();
+
     initTileTexture();
 
     std::vector<std::vector<Tile>> level;
@@ -167,7 +169,7 @@ void TileMap::applyCharToTile(Tile& tile, char cell) {
         tile.bonus = BonusType::Coin;
         break;
     case 'M':
-        tile.activated = true;
+        tile.activated = false;
         break;
     default:
         break;

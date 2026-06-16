@@ -410,6 +410,8 @@ int main() {
                     gameState != GameState::Playing) {
                     player = Player();
                     player.setItemList(&items);
+                    items.clear();
+                    tileMap.loadFromFile("level1.txt");
                     enemies.clear();
                     enemies.reserve(8);
                     enemies.emplace_back(sf::Vector2f(400.f, 380.f));
@@ -420,8 +422,10 @@ int main() {
                     bonusEarned    = 0;
                     gameState      = GameState::Playing;
 
-                    if (musicLoaded)
+                    if (musicLoaded) {
+                        musicLevel1.stop();
                         musicLevel1.play();
+                    }
 
                     for (Checkpoint& cp : checkpoints)
                         cp.reset();
@@ -492,16 +496,17 @@ int main() {
             for (Enemy& enemy : enemies)
                 enemy.update(dt, tileMap);
 
+            // --- Kolizja gracz / itemy ---
+            for (Item& it : items) {
+                if (!it.isCollected() && it.getBounds().findIntersection(player.getBounds())) {
+                    it.collect();
+                    player.addScore(100);
+                }
+            }
+
             // --- Kolizje gracz / wrogowie ---
             for (Enemy& enemy : enemies) {
-                if (!enemy.isAlive()) continue;
-
-                for (Item& it : items) {
-                    if (!it.isCollected() && it.getBounds().findIntersection(player.getBounds())) {
-                        it.collect();
-                        player.addScore(100);
-                    }
-                }
+                if (!enemy.isAlive()) continue;               
 
                 if (enemy.checkCollisionWithPlayer(player) && player.getVelocity().y > 0.f) {
                     enemy.kill();
@@ -586,12 +591,14 @@ int main() {
         // ============================================================
         window.clear(sf::Color(135, 206, 235));
 
+        // --- Swiat gry (z kamera) ---
+        window.setView(gameView);
+
+        drawTileMap(window, tileMap, tileTextures);
+
         for (Item& it : items)
             it.draw(window);
 
-        // --- Swiat gry (z kamera) ---
-        window.setView(gameView);
-        drawTileMap(window, tileMap, tileTextures);
         goalFlag.draw(window);
         for (Enemy& enemy : enemies) enemy.draw(window);
         player.draw(window);
