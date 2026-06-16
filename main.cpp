@@ -1,9 +1,11 @@
 #include <SFML/Graphics.hpp>
+#include <SFML/Audio.hpp>
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>
 #include <iomanip>
 #include <iostream>
+#include <optional>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -295,6 +297,42 @@ int main() {
     if (!tileTextures.load())
         std::cerr << "[main] Brak niektorych tekstur kafelkow.\n";
 
+    // --- Audio ---
+    sf::SoundBuffer loseBuffer;
+    sf::SoundBuffer endLevelBuffer;
+    std::optional<sf::Sound> loseSound;
+    std::optional<sf::Sound> endLevelSound;
+    bool loseSoundLoaded = false;
+    bool endLevelSoundLoaded = false;
+
+    auto loadSoundBuffer = [&](sf::SoundBuffer& buffer, const char* path, bool& loadedFlag) {
+        if (!buffer.loadFromFile(path)) {
+            std::cerr << "[main] brak: " << path << "\n";
+            loadedFlag = false;
+        } else {
+            loadedFlag = true;
+        }
+    };
+
+    loadSoundBuffer(loseBuffer, "assets/sounds/lose_sound.wav", loseSoundLoaded);
+    loadSoundBuffer(endLevelBuffer, "assets/sounds/end_level_sound.wav", endLevelSoundLoaded);
+
+    loseSound.emplace(loseBuffer);
+    endLevelSound.emplace(endLevelBuffer);
+    loseSound->setVolume(90.f);
+    endLevelSound->setVolume(90.f);
+
+    sf::Music musicLevel1;
+    bool musicLoaded = false;
+    if (!musicLevel1.openFromFile("assets/music/music_level_1.wav")) {
+        std::cerr << "[main] brak: assets/music/music_level_1.wav\n";
+    } else {
+        musicLevel1.setLooping(true);
+        musicLevel1.setVolume(55.f);
+        musicLevel1.play();
+        musicLoaded = true;
+    }
+
     const float levelWidth = tileMap.getSizeInPixels().x;
 
     // --- Obiekty gry ---
@@ -360,6 +398,9 @@ int main() {
         // --- Eventy ---
         while (const std::optional event = window.pollEvent()) {
             if (event->is<sf::Event::Closed>()) window.close();
+            if (event->is<sf::Event::FocusLost>()) {
+                player.clearMovementInput();
+            }
             if (const auto* key = event->getIf<sf::Event::KeyPressed>()) {
                 if (key->code == sf::Keyboard::Key::Escape)
                     window.close();
@@ -368,6 +409,7 @@ int main() {
                 if (key->code == sf::Keyboard::Key::R &&
                     gameState != GameState::Playing) {
                     player = Player();
+                    player.setItemList(&items);
                     enemies.clear();
                     enemies.reserve(8);
                     enemies.emplace_back(sf::Vector2f(400.f, 380.f));
@@ -378,10 +420,19 @@ int main() {
                     bonusEarned    = 0;
                     gameState      = GameState::Playing;
 
+                    if (musicLoaded)
+                        musicLevel1.play();
+
                     for (Checkpoint& cp : checkpoints)
                         cp.reset();
 
                 }
+
+                player.handleKeyPressed(key->code);
+            }
+
+            if (const auto* key = event->getIf<sf::Event::KeyReleased>()) {
+                player.handleKeyReleased(key->code);
             }
         }
 
@@ -494,14 +545,23 @@ int main() {
             gameView.setCenter(center);
 
             // --- Warunki konca gry ---
-            if (player.getLives() <= 0 && !player.isDying())
+            if (player.getLives() <= 0 && !player.isDying()) {
                 gameState = GameState::GameOver;
+                if (musicLoaded)
+                    musicLevel1.stop();
+                if (loseSoundLoaded && loseSound)
+                    loseSound->play();
+            }
 
             if (goalFlag.checkCollisionWithPlayer(player)) {
                 gameState      = GameState::Win;
                 bonusRemaining = timeLeft;   // zamroz czas jako bonus
                 bonusEarned    = 0;
                 timeLeft       = 0.f;
+                if (musicLoaded)
+                    musicLevel1.stop();
+                if (endLevelSoundLoaded && endLevelSound)
+                    endLevelSound->play();
             }
 
         } // end Playing

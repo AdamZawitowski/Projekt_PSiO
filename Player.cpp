@@ -57,6 +57,7 @@ Player::Player()
     m_shape.setPosition(m_spawnPoint);
 
     m_texturesLoaded = loadTextures();
+    loadAudio();
     if (m_texturesLoaded)
         setState(PlayerState::Idle);
     else
@@ -90,11 +91,93 @@ bool Player::loadTextures() {
 }
 
 // ------------------------------------------------------------------ //
+//  Ladowanie audio                                                    //
+// ------------------------------------------------------------------ //
+bool Player::loadAudio() {
+    if (!m_jumpBuffer.loadFromFile("assets/sounds/jump_sound.wav")) {
+        std::cerr << "[Player] brak: assets/sounds/jump_sound.wav\n";
+        m_jumpAudioLoaded = false;
+    } else {
+        m_jumpAudioLoaded = true;
+    }
+
+    if (!m_deathBuffer.loadFromFile("assets/sounds/death_sound.wav")) {
+        std::cerr << "[Player] brak: assets/sounds/death_sound.wav\n";
+        m_deathAudioLoaded = false;
+    } else {
+        m_deathAudioLoaded = true;
+    }
+
+    m_jumpSound.emplace(m_jumpBuffer);
+    m_deathSound.emplace(m_deathBuffer);
+    m_jumpSound->setVolume(70.f);
+    m_deathSound->setVolume(85.f);
+    return m_jumpAudioLoaded || m_deathAudioLoaded;
+}
+
+// ------------------------------------------------------------------ //
 //  Ustawienie tekstury + origin                                         //
 // ------------------------------------------------------------------ //
 void Player::setTextureWithOrigin(sf::Texture& tex, const sf::Vector2f& origin) {
     m_sprite.emplace(tex);
     m_sprite->setOrigin(origin);
+}
+
+// ------------------------------------------------------------------ //
+//  Wejscie z klawiatury                                               //
+// ------------------------------------------------------------------ //
+void Player::handleKeyPressed(sf::Keyboard::Key key) {
+    switch (key) {
+    case sf::Keyboard::Key::Left:
+    case sf::Keyboard::Key::A:
+        m_moveLeft = true;
+        break;
+    case sf::Keyboard::Key::Right:
+    case sf::Keyboard::Key::D:
+        m_moveRight = true;
+        break;
+    case sf::Keyboard::Key::Down:
+    case sf::Keyboard::Key::S:
+        m_crouchHeld = true;
+        break;
+    case sf::Keyboard::Key::Space:
+    case sf::Keyboard::Key::Up:
+    case sf::Keyboard::Key::W:
+        if (!m_isCrouching && m_onGround) {
+            m_velocity.y = JUMP_FORCE;
+            m_onGround = false;
+            if (m_jumpAudioLoaded && m_jumpSound)
+                m_jumpSound->play();
+        }
+        break;
+    default:
+        break;
+    }
+}
+
+void Player::handleKeyReleased(sf::Keyboard::Key key) {
+    switch (key) {
+    case sf::Keyboard::Key::Left:
+    case sf::Keyboard::Key::A:
+        m_moveLeft = false;
+        break;
+    case sf::Keyboard::Key::Right:
+    case sf::Keyboard::Key::D:
+        m_moveRight = false;
+        break;
+    case sf::Keyboard::Key::Down:
+    case sf::Keyboard::Key::S:
+        m_crouchHeld = false;
+        break;
+    default:
+        break;
+    }
+}
+
+void Player::clearMovementInput() {
+    m_moveLeft = false;
+    m_moveRight = false;
+    m_crouchHeld = false;
 }
 
 // ------------------------------------------------------------------ //
@@ -233,9 +316,8 @@ void Player::update(float dt) {
         }
     }
 
-    m_velocity.x = 0.f;
     applyGravity(dt);
-    handleInput(dt);
+    updateMovement();
     applyMovement(dt);
     updateAnimation(dt);
 }
@@ -293,6 +375,8 @@ void Player::handleInput(float dt) {
         && m_onGround) {
         m_velocity.y = JUMP_FORCE;
         m_onGround   = false;
+        if (m_jumpAudioLoaded && m_jumpSound)
+            m_jumpSound->play();
     }
 }
 
@@ -301,6 +385,30 @@ void Player::handleInput(float dt) {
 // ------------------------------------------------------------------ //
 void Player::applyMovement(float dt) {
     m_shape.move(m_velocity * dt);
+}
+
+// ------------------------------------------------------------------ //
+//  Ruch oparty o stan klawiszy                                        //
+// ------------------------------------------------------------------ //
+void Player::updateMovement() {
+    const float speed = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::LShift)
+                        ? SPRINT_SPEED : MOVE_SPEED;
+
+    m_velocity.x = 0.f;
+    if (m_moveLeft)
+        m_velocity.x -= speed;
+    if (m_moveRight)
+        m_velocity.x += speed;
+
+    if (m_crouchHeld && !m_isCrouching) {
+        m_isCrouching = true;
+        m_shape.setSize({ HITBOX_W, HITBOX_CROUCH_H });
+        if (m_texturesLoaded) setState(PlayerState::Crawl);
+    }
+    else if (!m_crouchHeld && m_isCrouching) {
+        m_isCrouching = false;
+        m_shape.setSize({ HITBOX_W, HITBOX_H });
+    }
 }
 
 // ------------------------------------------------------------------ //
@@ -415,6 +523,9 @@ void Player::loseLife() {
 
     // Death bounce — ostry impuls w gore, grawitacja potem sciagnie w dol
     m_velocity = { 0.f, -600.f };
+
+    if (m_deathAudioLoaded && m_deathSound)
+        m_deathSound->play();
 
     if (m_texturesLoaded) setState(PlayerState::Dead);
 }

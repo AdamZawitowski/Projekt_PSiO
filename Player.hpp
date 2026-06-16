@@ -1,4 +1,5 @@
 #pragma once
+#include <SFML/Audio.hpp>
 #include <SFML/Graphics.hpp>
 #include <optional>
 #include <vector>
@@ -23,6 +24,9 @@ public:
     void update(float dt);
     void draw(sf::RenderWindow& window) const;
     void resolveCollisions(TileMap& tileMap);
+    void handleKeyPressed(sf::Keyboard::Key key);
+    void handleKeyReleased(sf::Keyboard::Key key);
+    void clearMovementInput();
 
     sf::FloatRect getBounds()   const;
     sf::Vector2f  getPosition() const;
@@ -63,6 +67,7 @@ private:
     };
 
     void handleInput(float dt);
+    void updateMovement();
     void applyGravity(float dt);
     void applyMovement(float dt);
     void updateAnimation(float dt);
@@ -70,6 +75,7 @@ private:
     void applySpriteToHitbox();
 
     bool loadTextures();
+    bool loadAudio();
     void setTextureWithOrigin(sf::Texture& tex, const sf::Vector2f& origin);
 
     // --- Fizyka ---
@@ -98,4 +104,16 @@ private:
     bool  m_invincible = false;
 
     std::vector<Item>* m_itemsRef = nullptr;
+
+    // --- Audio ---
+    bool m_jumpAudioLoaded = false;
+    bool m_deathAudioLoaded = false;
+    sf::SoundBuffer m_jumpBuffer;
+    sf::SoundBuffer m_deathBuffer;
+    std::optional<sf::Sound> m_jumpSound;
+    std::optional<sf::Sound> m_deathSound;
+
+    bool m_moveLeft = false;
+    bool m_moveRight = false;
+    bool m_crouchHeld = false;
 };
