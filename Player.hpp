@@ -2,6 +2,7 @@
 #include <SFML/Audio.hpp>
 #include <SFML/Graphics.hpp>
 #include <optional>
+#include <string>
 #include <vector>
 #include "TileMap.hpp"
 #include "Item.hpp"
@@ -62,6 +63,10 @@ public:
     bool isOnGround() const { return m_onGround; }
 
     void addLife() { m_lives++; }
+
+    // --- Nick gracza (ustawiany z Menu po NameInput) ---
+    void setName(const std::string& name) { m_name = name; }
+    const std::string& getName() const { return m_name; }
 private:
     // --- Smierc ---
     float m_deathTimer = 0.f;
@@ -126,4 +131,6 @@ private:
     bool m_moveLeft = false;
     bool m_moveRight = false;
     bool m_crouchHeld = false;
+
+    std::string m_name;
 };

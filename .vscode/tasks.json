@@ -13,6 +13,8 @@
                 "${workspaceFolder}/Enemy.cpp",
                 "${workspaceFolder}/GoalFlag.cpp",
                 "${workspaceFolder}/Item.cpp",
+                "${workspaceFolder}/Bullet.cpp",
+                "${workspaceFolder}/Menu.cpp",
                 "-o",
                 "${workspaceFolder}/MarioContra2.exe",
                 "-I", "C:/msys64/ucrt64/include",

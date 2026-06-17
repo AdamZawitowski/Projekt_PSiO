@@ -18,6 +18,8 @@
 #include "Checkpoint.hpp"
 #include "Item.hpp"
 #include "Bullet.hpp"
+#include "AppState.hpp"
+#include "Menu.hpp"
 
 namespace {
 
@@ -286,6 +288,16 @@ int main() {
     else
         fontLoaded = true;
 
+    // --- Stan calej aplikacji (menu / nick / gra / pauza / leaderboard) ---
+    AppState appState = AppState::MainMenu;
+
+    // --- Menu glowne + ekran wpisywania nicku ---
+    Menu menu;
+    if (!menu.loadFont("assets/font.ttf"))
+        std::cerr << "[main] Menu: brak czcionki assets/font.ttf\n";
+
+    std::string playerName; // wypelniane przez Menu po NameInput
+
     // --- Tekstura serduszka do HUD ---
     sf::Texture texHeart;
     if (!texHeart.loadFromFile("assets/heart.png"))
@@ -400,7 +412,7 @@ int main() {
     // ================================================================
     //  GAME LOOP
     // ================================================================
-    while (window.isOpen()) {
+    while (window.isOpen() && !menu.wantsToExit()) {
 
         // --- Eventy ---
         while (const std::optional event = window.pollEvent()) {
@@ -408,56 +420,107 @@ int main() {
             if (event->is<sf::Event::FocusLost>()) {
                 player.clearMovementInput();
             }
-            if (const auto* key = event->getIf<sf::Event::KeyPressed>()) {
-                if (key->code == sf::Keyboard::Key::Escape)
-                    window.close();
 
-                // Restart po Game Over lub po zakonczeniu ekranu wygranej
-                if (key->code == sf::Keyboard::Key::R &&
-                    gameState != GameState::Playing) {
-                    player = Player();
-                    player.setItemList(&items);
-                    items.clear();
+            // Rozdzielenie obslugi zdarzen wedlug stanu calej aplikacji.
+            switch (appState) {
 
-                    tileMap.loadFromFile("level1.txt");
+            case AppState::MainMenu:
+            case AppState::NameInput:
+                // Menu samo wewnetrznie rozpoznaje, ktory z dwoch
+                // ekranow (opcje / wpisywanie nicku) obecnie obslugiwac.
+                menu.handleEvent(*event, appState, playerName);
 
-                    bullets.clear();
-                    shootCooldown = 0.f;
+                // Gdy NameInput zostalo wlasnie zatwierdzone, Menu
+                // ustawilo appState = AppState::Gameplay i playerName.
+                // Przekazujemy nick do gracza i (re)inicjalizujemy swiat gry.
+                if (appState == AppState::Gameplay) {
+                    player.setName(playerName);
+                }
+                break;
 
-                    enemies.clear();
-                    enemies.reserve(8);
-                    enemies.emplace_back(sf::Vector2f(400.f, 380.f));
-                    enemies.emplace_back(sf::Vector2f(600.f, 380.f));
-                    killCount      = 0;
-                    timeLeft       = LEVEL_TIME;
-                    bonusRemaining = 0.f;
-                    bonusEarned    = 0;
-                    gameState      = GameState::Playing;
+            case AppState::PauseMenu:
+                if (const auto* key = event->getIf<sf::Event::KeyPressed>()) {
+                    if (key->code == sf::Keyboard::Key::Escape) {
+                        appState = AppState::Gameplay; // wznowienie
+                    }
+                    else if (key->code == sf::Keyboard::Key::Q) {
+                        // Powrot do glownego menu z pauzy
+                        menu.reset();
+                        appState = AppState::MainMenu;
+                    }
+                }
+                break;
 
-                    if (musicLoaded) {
-                        musicLevel1.stop();
-                        musicLevel1.play();
+            case AppState::Leaderboard:
+                if (const auto* key = event->getIf<sf::Event::KeyPressed>()) {
+                    if (key->code == sf::Keyboard::Key::Escape ||
+                        key->code == sf::Keyboard::Key::Enter) {
+                        appState = AppState::MainMenu;
+                    }
+                }
+                break;
+
+            case AppState::Gameplay:
+                if (const auto* key = event->getIf<sf::Event::KeyPressed>()) {
+                    if (key->code == sf::Keyboard::Key::Escape) {
+                        appState = AppState::PauseMenu; // pauza, nie zamykanie okna
+                        break; // nie przekazujemy Escape do gracza
                     }
 
-                    for (Checkpoint& cp : checkpoints)
-                        cp.reset();
+                    // Restart po Game Over lub po zakonczeniu ekranu wygranej
+                    if (key->code == sf::Keyboard::Key::R &&
+                        gameState != GameState::Playing) {
+                        player = Player();
+                        player.setName(playerName);
+                        player.setItemList(&items);
+                        items.clear();
 
+                        tileMap.loadFromFile("level1.txt");
+
+                        bullets.clear();
+                        shootCooldown = 0.f;
+
+                        enemies.clear();
+                        enemies.reserve(8);
+                        enemies.emplace_back(sf::Vector2f(400.f, 380.f));
+                        enemies.emplace_back(sf::Vector2f(600.f, 380.f));
+                        killCount      = 0;
+                        timeLeft       = LEVEL_TIME;
+                        bonusRemaining = 0.f;
+                        bonusEarned    = 0;
+                        gameState      = GameState::Playing;
+
+                        if (musicLoaded) {
+                            musicLevel1.stop();
+                            musicLevel1.play();
+                        }
+
+                        for (Checkpoint& cp : checkpoints)
+                            cp.reset();
+                    }
+
+                    player.handleKeyPressed(key->code);
                 }
 
-                player.handleKeyPressed(key->code);
-            }
-
-            if (const auto* key = event->getIf<sf::Event::KeyReleased>()) {
-                player.handleKeyReleased(key->code);
+                if (const auto* key = event->getIf<sf::Event::KeyReleased>()) {
+                    player.handleKeyReleased(key->code);
+                }
+                break;
             }
         }
 
         const float dt = clock.restart().asSeconds();
 
+        // Menu ma wlasna, lekka logike (np. miganie kursora nicku)
+        // niezalezna od stanu rozgrywki.
+        if (appState == AppState::MainMenu || appState == AppState::NameInput) {
+            menu.update(dt);
+        }
+
         // ============================================================
         //  UPDATE
         // ============================================================
-        if (gameState == GameState::Playing) {
+        if (appState == AppState::Gameplay && gameState == GameState::Playing) {
 
             // --- Odliczanie czasu ---
             timeLeft -= dt;
@@ -681,7 +744,7 @@ int main() {
         } // end Playing
 
         // --- Odliczanie bonusu po wygranej ---
-        if (gameState == GameState::Win && bonusRemaining > 0.f) {
+        if (appState == AppState::Gameplay && gameState == GameState::Win && bonusRemaining > 0.f) {
             const float drain = std::min(bonusRemaining, BONUS_DRAIN_RATE * dt);
             bonusRemaining -= drain;
             const int pts    = static_cast<int>(drain * 100.f);
@@ -692,53 +755,80 @@ int main() {
         }
 
         // --- Tytul okna ---
-        window.setTitle("Mario Contra 2 | zycia: " + std::to_string(player.getLives())
-                        + " | pkt: " + std::to_string(player.getScore()));
+        if (appState == AppState::Gameplay || appState == AppState::PauseMenu) {
+            window.setTitle("Mario Contra 2 | zycia: " + std::to_string(player.getLives())
+                            + " | pkt: " + std::to_string(player.getScore()));
+        } else {
+            window.setTitle("Mario Contra 2");
+        }
 
         // ============================================================
         //  DRAW
         // ============================================================
         window.clear(sf::Color(135, 206, 235));
 
-        // --- Swiat gry (z kamera) ---
-        window.setView(gameView);
+        if (appState == AppState::Gameplay || appState == AppState::PauseMenu) {
+            // --- Swiat gry (z kamera) ---
+            window.setView(gameView);
 
-        drawTileMap(window, tileMap, tileTextures);
+            drawTileMap(window, tileMap, tileTextures);
 
-        for (Item& it : items)
-            it.draw(window);
+            for (Item& it : items)
+                it.draw(window);
 
-        for (Bullet& b : bullets)
-            b.draw(window);
+            for (Bullet& b : bullets)
+                b.draw(window);
 
-        goalFlag.draw(window);
-        for (Enemy& enemy : enemies) enemy.draw(window);
-        player.draw(window);
+            goalFlag.draw(window);
+            for (Enemy& enemy : enemies) enemy.draw(window);
+            player.draw(window);
 
-        for (const Checkpoint& cp : checkpoints)
-            cp.draw(window);
+            for (const Checkpoint& cp : checkpoints)
+                cp.draw(window);
 
-        // --- UI (fixed, bez scrollowania) ---
-        window.setView(uiView);
+            // --- UI (fixed, bez scrollowania) ---
+            window.setView(uiView);
 
-        if (fontLoaded)
-            drawHUD(window, font, player.getLives(), player.getScore(), timeLeft, texHeart);
+            if (fontLoaded)
+                drawHUD(window, font, player.getLives(), player.getScore(), timeLeft, texHeart);
 
-        // Overlay stanow
-        if (gameState == GameState::GameOver && fontLoaded)
-            drawOverlay(window, font, "GAME OVER",
-                "Nacisnij R aby zagrac ponownie", sf::Color::Red);
+            // Overlay stanow rozgrywki (Game Over / Win) — tylko gdy faktycznie gramy
+            if (appState == AppState::Gameplay) {
+                if (gameState == GameState::GameOver && fontLoaded)
+                    drawOverlay(window, font, "GAME OVER",
+                        "Nacisnij R aby zagrac ponownie", sf::Color::Red);
 
-        else if (gameState == GameState::Win && bonusRemaining > 0.f && fontLoaded)
-            drawBonusCountdown(window, font, bonusRemaining, bonusEarned);
+                else if (gameState == GameState::Win && bonusRemaining > 0.f && fontLoaded)
+                    drawBonusCountdown(window, font, bonusRemaining, bonusEarned);
 
-        else if (gameState == GameState::Win && bonusRemaining <= 0.f && fontLoaded)
-            drawOverlay(window, font, "LEVEL OVER",
-                "Punkty: " + formatScore(player.getScore())
-                + "   Nacisnij R", sf::Color::Yellow);
+                else if (gameState == GameState::Win && bonusRemaining <= 0.f && fontLoaded)
+                    drawOverlay(window, font, "LEVEL OVER",
+                        "Punkty: " + formatScore(player.getScore())
+                        + "   Nacisnij R", sf::Color::Yellow);
+            }
 
-        // Przywroc widok gry
-        window.setView(gameView);
+            // --- Nakladka menu pauzy (gra zamrozona pod nia) ---
+            if (appState == AppState::PauseMenu && fontLoaded) {
+                drawOverlay(window, font, "PAUZA",
+                    "Esc - wznow   /   Q - menu glowne", sf::Color::White);
+            }
+
+            // Przywroc widok gry
+            window.setView(gameView);
+        }
+        else if (appState == AppState::MainMenu || appState == AppState::NameInput) {
+            window.setView(uiView);
+            menu.draw(window);
+        }
+        else if (appState == AppState::Leaderboard) {
+            // Prosty placeholder ekranu tablicy wynikow — projekt nie
+            // definiowal jeszcze formatu przechowywania wynikow, wiec
+            // tu jest tylko miejsce do rozbudowy (np. wczytanie z pliku).
+            window.setView(uiView);
+            if (fontLoaded)
+                drawOverlay(window, font, "TABLICA WYNIKOW",
+                    "Esc / Enter - powrot do menu", sf::Color::Cyan);
+        }
 
         window.display();
     }
