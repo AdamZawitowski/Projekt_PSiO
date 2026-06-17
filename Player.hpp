@@ -19,7 +19,7 @@ public:
     static constexpr float DEATH_DELAY  = 1.5f;  // czas trwania animacji smierci
 
     static constexpr float HITBOX_W = 26.f;
-    static constexpr float HITBOX_H = 100.f;
+    static constexpr float HITBOX_H = 105.f;
     static constexpr float HITBOX_CROUCH_H = 18.f; 
     Player();
 
@@ -41,6 +41,10 @@ public:
 
     // --- Gettery stanu dla main.cpp ---
     bool isDying()        const { return m_isDying; }
+
+    std::optional<sf::Vector2f> getLastBrickHit() const { return m_lastBrickHit; }
+    void clearLastBrickHit() { m_lastBrickHit = std::nullopt; }
+
     // Zwraca true przez pierwsza klatke smierci — main.cpp uzywa do screen shake
     bool justDied()       const { return m_justDied; }
     void clearJustDied()        { m_justDied = false; }
@@ -145,4 +149,6 @@ private:
 
     float m_tripleShotTimer = 0.f;
     bool  m_tripleShotActive = false;
+
+    std::optional<sf::Vector2f> m_lastBrickHit;
 };

@@ -478,8 +478,12 @@ void Player::resolveCollisions(TileMap& tileMap) {
                         }
 
                         else if (tilePtr && tilePtr->type == TileType::Brick && tilePtr->destructible) {
-                            if (m_itemsRef)
+                            if (m_itemsRef) {
+                                // zapisz pozycję przed zniszczeniem
+                                m_lastBrickHit = sf::Vector2f(col * TileMap::TILE_SIZE,
+                                    row * TileMap::TILE_SIZE);
                                 tileMap.hitBrick(col, row, *m_itemsRef);
+                            }
                         }
                     }
                 }

@@ -21,6 +21,7 @@
 #include "AppState.hpp"
 #include "Menu.hpp"
 #include "Leaderboard.hpp"
+#include "BrickDebris.hpp"
 
 namespace {
 
@@ -376,6 +377,9 @@ int main() {
     float shootCooldown = 0.f;              
     static constexpr float SHOOT_DELAY = 0.25f;
 
+    std::vector<BrickDebris> brickDebris;
+    brickDebris.reserve(32);
+
     std::vector<Checkpoint> checkpoints;
     checkpoints.reserve(8);  // zapobiega realokacji i uniewazneniu wskaznikow sprite->texture
     checkpoints.emplace_back(sf::Vector2f(5280.f, 360.f));
@@ -488,6 +492,8 @@ int main() {
                         bullets.clear();
                         shootCooldown = 0.f;
 
+                        brickDebris.clear();
+
                         enemies.clear();
                         enemies.reserve(8);
                         enemies.emplace_back(sf::Vector2f(400.f, 380.f));
@@ -541,6 +547,12 @@ int main() {
             // --- Gracz ---
             player.update(dt);
             player.resolveCollisions(tileMap);
+
+
+            if (auto brickPos = player.getLastBrickHit()) {
+                brickDebris.emplace_back(*brickPos);
+                player.clearLastBrickHit();
+            }
 
             shootCooldown -= dt;
             if (shootCooldown <= 0.f &&
@@ -612,7 +624,10 @@ int main() {
                     TileType t = tileMap.getTile(col, row);
 
                     if (t == TileType::Brick) {
+                        sf::Vector2f brickPos = { col * TileMap::TILE_SIZE,
+                                                  row * TileMap::TILE_SIZE };
                         tileMap.hitBrick(col, row, items);
+                        brickDebris.emplace_back(brickPos);   // ← nowa linia
                         bullet.deactivate();
                         break;
                     }
@@ -643,6 +658,13 @@ int main() {
                 std::remove_if(bullets.begin(), bullets.end(),
                     [](const Bullet& b) { return !b.isActive(); }),
                 bullets.end());
+
+            for (BrickDebris& d : brickDebris)
+                d.update(dt);
+            brickDebris.erase(
+                std::remove_if(brickDebris.begin(), brickDebris.end(),
+                    [](const BrickDebris& d) { return !d.isActive(); }),
+                brickDebris.end());
 
             for (Checkpoint& cp : checkpoints) {
                 if (cp.checkCollision(player)) {
@@ -821,6 +843,9 @@ int main() {
 
             for (Bullet& b : bullets)
                 b.draw(window);
+
+            for (BrickDebris& d : brickDebris)
+                d.draw(window);
 
             goalFlag.draw(window);
             for (Enemy& enemy : enemies) enemy.draw(window);
