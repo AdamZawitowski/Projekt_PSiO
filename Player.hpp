@@ -19,7 +19,7 @@ public:
     static constexpr float DEATH_DELAY  = 1.5f;  // czas trwania animacji smierci
 
     static constexpr float HITBOX_W = 26.f;
-    static constexpr float HITBOX_H = 32.f;
+    static constexpr float HITBOX_H = 100.f;
     static constexpr float HITBOX_CROUCH_H = 18.f; 
     Player();
 

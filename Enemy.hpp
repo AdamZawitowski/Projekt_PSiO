@@ -14,8 +14,8 @@ public:
     static constexpr int MAX_HEALTH = 2;
 
     // Rozmiar hitboxa — niezalezny od rozmiaru tekstury
-    static constexpr float HITBOX_W = 28.f;
-    static constexpr float HITBOX_H = 28.f;
+    static constexpr float HITBOX_W = 40.f;
+    static constexpr float HITBOX_H = 64.f;
 
     // Konstruktor — podaj pozycje startowa wroga
     explicit Enemy(sf::Vector2f startPosition);

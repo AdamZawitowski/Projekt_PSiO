@@ -360,20 +360,15 @@ void Player::handleInput(float dt) {
     if (wantCrouch && !m_isCrouching) {
         m_isCrouching = true;
         const float diff = HITBOX_H - HITBOX_CROUCH_H;
-
-        // ZMNIEJSZ HITBOX OD GÓRY, NIE OD DOŁU
+        m_shape.move({ 0.f, diff });
         m_shape.setSize({ HITBOX_W, HITBOX_CROUCH_H });
-
-        // NIE ruszaj pozycji Y — stopy zostają tam gdzie były
-
         if (m_texturesLoaded) setState(PlayerState::Crawl);
-
     }
     else if (!wantCrouch && m_isCrouching) {
         m_isCrouching = false;
+        const float diff = HITBOX_H - HITBOX_CROUCH_H;
+        m_shape.move({ 0.f, -diff });
         m_shape.setSize({ HITBOX_W, HITBOX_H });
-        // NIE ruszaj pozycji Y
-
     }
 
     if (!m_isCrouching && 
@@ -414,11 +409,15 @@ void Player::updateMovement() {
 
     if (m_crouchHeld && !m_isCrouching) {
         m_isCrouching = true;
+        const float diff = HITBOX_H - HITBOX_CROUCH_H;
+        m_shape.move({ 0.f, diff });
         m_shape.setSize({ HITBOX_W, HITBOX_CROUCH_H });
         if (m_texturesLoaded) setState(PlayerState::Crawl);
     }
     else if (!m_crouchHeld && m_isCrouching) {
         m_isCrouching = false;
+        const float diff = HITBOX_H - HITBOX_CROUCH_H;
+        m_shape.move({ 0.f, -diff });
         m_shape.setSize({ HITBOX_W, HITBOX_H });
     }
 }
@@ -560,7 +559,7 @@ void Player::respawn() {
     }
 
     if (m_texturesLoaded) {
-        m_state = PlayerState::Idle;
+        m_state = PlayerState::Dead;
         setState(PlayerState::Idle);
     }
 
