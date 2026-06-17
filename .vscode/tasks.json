@@ -15,6 +15,7 @@
                 "${workspaceFolder}/Item.cpp",
                 "${workspaceFolder}/Bullet.cpp",
                 "${workspaceFolder}/Menu.cpp",
+                "${workspaceFolder}/Leaderboard.cpp",
                 "-o",
                 "${workspaceFolder}/MarioContra2.exe",
                 "-I", "C:/msys64/ucrt64/include",

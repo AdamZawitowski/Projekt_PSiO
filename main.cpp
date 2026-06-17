@@ -20,6 +20,7 @@
 #include "Bullet.hpp"
 #include "AppState.hpp"
 #include "Menu.hpp"
+#include "Leaderboard.hpp"
 
 namespace {
 
@@ -298,6 +299,13 @@ int main() {
 
     std::string playerName; // wypelniane przez Menu po NameInput
 
+    // --- Tablica wynikow ---
+    static const std::string LEADERBOARD_FILE = "leaderboard.txt";
+    Leaderboard leaderboard;
+    if (!leaderboard.loadFont("assets/font.ttf"))
+        std::cerr << "[main] Leaderboard: brak czcionki assets/font.ttf\n";
+    leaderboard.loadFromFile(LEADERBOARD_FILE);
+
     // --- Tekstura serduszka do HUD ---
     sf::Texture texHeart;
     if (!texHeart.loadFromFile("assets/heart.png"))
@@ -390,6 +398,10 @@ int main() {
     int   bonusEarned    = 0;     // punkty juz przyznane
     static constexpr float BONUS_DRAIN_RATE = 60.f; // sekund/sekunde (szybkie odliczanie)
 
+    // Zapobiega wielokrotnemu dopisaniu tego samego wyniku do tablicy
+    // wynikow w kolejnych klatkach po GameOver/Win. Resetowane przy R.
+    bool scoreSaved = false;
+
     // --- Screen shake ---
     float shakeTimer     = 0.f;
     static constexpr float SHAKE_DURATION  = 0.4f;
@@ -452,12 +464,8 @@ int main() {
                 break;
 
             case AppState::Leaderboard:
-                if (const auto* key = event->getIf<sf::Event::KeyPressed>()) {
-                    if (key->code == sf::Keyboard::Key::Escape ||
-                        key->code == sf::Keyboard::Key::Enter) {
-                        appState = AppState::MainMenu;
-                    }
-                }
+                // Klasa Leaderboard sama obsluguje wyjscie (Escape -> MainMenu).
+                leaderboard.handleEvent(*event, appState);
                 break;
 
             case AppState::Gameplay:
@@ -489,6 +497,7 @@ int main() {
                         bonusRemaining = 0.f;
                         bonusEarned    = 0;
                         gameState      = GameState::Playing;
+                        scoreSaved     = false;
 
                         if (musicLoaded) {
                             musicLevel1.stop();
@@ -728,6 +737,13 @@ int main() {
                     musicLevel1.stop();
                 if (loseSoundLoaded && loseSound)
                     loseSound->play();
+
+                if (!scoreSaved) {
+                    // Gracz przegral bez ukonczenia poziomu — 0 poziomow przejscia.
+                    leaderboard.addScore(playerName, 0, player.getScore());
+                    leaderboard.saveToFile(LEADERBOARD_FILE);
+                    scoreSaved = true;
+                }
             }
 
             if (goalFlag.checkCollisionWithPlayer(player)) {
@@ -752,6 +768,16 @@ int main() {
             player.addScore(pts);
 
             if (bonusRemaining < 0.5f) bonusRemaining = 0.f;  // snap do 0
+        }
+
+        // Zapis wyniku do tablicy wynikow — dopiero gdy bonus czasowy
+        // sie wyczerpal, aby zapisac ostateczna (pelna) punktacje.
+        if (appState == AppState::Gameplay && gameState == GameState::Win &&
+            bonusRemaining <= 0.f && !scoreSaved) {
+            // Gracz dotarl do flagi — 1 przebyty poziom (gra ma na razie 1 poziom).
+            leaderboard.addScore(playerName, 1, player.getScore());
+            leaderboard.saveToFile(LEADERBOARD_FILE);
+            scoreSaved = true;
         }
 
         // --- Tytul okna ---
@@ -821,13 +847,8 @@ int main() {
             menu.draw(window);
         }
         else if (appState == AppState::Leaderboard) {
-            // Prosty placeholder ekranu tablicy wynikow — projekt nie
-            // definiowal jeszcze formatu przechowywania wynikow, wiec
-            // tu jest tylko miejsce do rozbudowy (np. wczytanie z pliku).
             window.setView(uiView);
-            if (fontLoaded)
-                drawOverlay(window, font, "TABLICA WYNIKOW",
-                    "Esc / Enter - powrot do menu", sf::Color::Cyan);
+            leaderboard.draw(window);
         }
 
         window.display();
