@@ -469,6 +469,11 @@ void Player::resolveCollisions(TileMap& tileMap) {
                             if (m_itemsRef)
                                 tileMap.hitQuestionBlock(col, row, *m_itemsRef);
                         }
+
+                        else if (tilePtr && tilePtr->type == TileType::Brick && tilePtr->destructible) {
+                            if (m_itemsRef)
+                                tileMap.hitBrick(col, row, *m_itemsRef);
+                        }
                     }
                 }
 

@@ -9,6 +9,7 @@
 #include <sstream>
 #include <string>
 #include <vector>
+#include <array>
 #include "Player.hpp"
 #include "Enemy.hpp"
 #include "TileMap.hpp"
@@ -478,6 +479,8 @@ int main() {
                 float dir = player.getFacingDirection();
                 if (player.isCrouching() || !player.isOnGround())
                     dir = 1.f;
+                if (player.isOnGround() && player.getVelocity().x == 0.f)
+                    dir = 1.f;
                 float bulletY;
 
                 if (player.isCrouching()) {
@@ -500,8 +503,42 @@ int main() {
             }
 
             // --- Update pocisków + kolizje z wrogami ---
-            for (Bullet& bullet : bullets)
+            for (Bullet& bullet : bullets) {
+                if (!bullet.isActive()) continue;
+
+                sf::FloatRect bb = bullet.getBounds();
+                sf::Vector2f center = {
+                    bb.position.x + bb.size.x / 2.f,
+                    bb.position.y + bb.size.y / 2.f
+                };
+
+                const float TS = TileMap::TILE_SIZE;
+
+                std::array<sf::Vector2f, 3> checkPoints = { {
+                    { bb.position.x,                    center.y },
+                    { bb.position.x + bb.size.x - 1.f, center.y },
+                    { center.x,                         center.y }
+                } };
+
+                for (sf::Vector2f point : checkPoints) {
+                    int col = static_cast<int>(point.x / TS);
+                    int row = static_cast<int>(point.y / TS);
+                    TileType t = tileMap.getTile(col, row);
+
+                    if (t == TileType::Brick) {
+                        if (tileMap.hitBrick(col, row, items))
+                            bullet.deactivate();
+                        break;
+                    }
+                    else if (t == TileType::QuestionBlock) {
+                        if (tileMap.hitQuestionBlock(col, row, items))
+                            bullet.deactivate();
+                        break;
+                    }
+                }
+
                 bullet.update(dt, tileMap);
+            }
 
             for (Bullet& bullet : bullets) {
                 if (!bullet.isActive()) continue;

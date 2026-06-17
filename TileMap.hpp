@@ -57,6 +57,8 @@ public:
 
     bool hitQuestionBlock(int col, int row, std::vector<Item>& items);
 
+    bool hitBrick(int col, int row, std::vector<Item>& items);
+
 private:
     static TileType charToTile(char cell);
     static void applyCharToTile(Tile& tile, char cell);

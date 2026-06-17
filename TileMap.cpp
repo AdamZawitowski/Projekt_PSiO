@@ -240,3 +240,24 @@ bool TileMap::hitQuestionBlock(int col, int row, std::vector<Item>& items) {
 
     return true;
 }
+
+bool TileMap::hitBrick(int col, int row, std::vector<Item>& items) {
+    if (!isSolid(col, row)) return false;
+
+    Tile& tile = m_level[row][col];
+    if (tile.type != TileType::Brick) return false;
+    if (!tile.destructible) return false;
+
+    tile.type = TileType::Empty;
+    tile.destructible = false;
+    rebuildTile(row, col);
+
+    // 10% szansa na monetę
+    if (std::rand() % 10 == 0) {
+        sf::Vector2f pos(col * TILE_SIZE + 6.f, row * TILE_SIZE - 10.f);
+        items.emplace_back(pos, ItemType::Coin);
+        items.back().setSourceBlock(col, row);
+    }
+
+    return true;
+}
