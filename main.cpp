@@ -549,14 +549,14 @@ int main() {
             {
                 sf::FloatRect pb = player.getBounds();
                 float dir = player.getFacingDirection();
-                if (player.isCrouching() || !player.isOnGround())
+                if (player.isOnGround() && !player.isCrouching() &&
+                    (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Left) ||
+                        sf::Keyboard::isKeyPressed(sf::Keyboard::Key::A)))
+                {
+                    dir = -1.f;
+                }
+                else {
                     dir = 1.f;
-                if (player.isOnGround() && player.getVelocity().x == 0.f)
-                    dir = 1.f;
-                if (player.isOnGround() && player.getVelocity().x == 0.f) {
-                    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Left) ||
-                        sf::Keyboard::isKeyPressed(sf::Keyboard::Key::A))
-                        dir = -1.f;
                 }
                 float bulletY;
 
