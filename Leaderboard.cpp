@@ -139,11 +139,11 @@ void Leaderboard::draw(sf::RenderWindow& window) const {
     window.draw(title);
 
     // --- Ramka tabeli ---
-    const float tableTop    = 120.f;
-    const float tableWidth  = 560.f;
-    const float rowHeight   = 42.f;
+    const float tableTop     = 120.f;
+    const float tableWidth   = 620.f;   // troche szersza, by dac wiecej miejsca na NICK
+    const float rowHeight    = 42.f;
     const float headerHeight = 36.f;
-    const float tableLeft   = centerX - tableWidth / 2.f;
+    const float tableLeft    = centerX - tableWidth / 2.f;
 
     sf::RectangleShape tableBg(sf::Vector2f(tableWidth, headerHeight + rowHeight * MAX_ENTRIES));
     tableBg.setPosition({ tableLeft, tableTop });
@@ -152,26 +152,59 @@ void Leaderboard::draw(sf::RenderWindow& window) const {
     tableBg.setOutlineThickness(2.f);
     window.draw(tableBg);
 
-    // Kolumny: # | NICK | POZIOMY | PUNKTY
-    const float colRank   = tableLeft + 20.f;
-    const float colName   = tableLeft + 70.f;
-    const float colLevels = tableLeft + 320.f;
-    const float colPoints = tableLeft + 430.f;
+    // ----------------------------------------------------------------
+    //  Kolumny: kazda kolumna ma poczatek X i SZEROKOSC. Liczby (POZIOMY,
+    //  PUNKTY) sa wyrownywane do PRAWEJ krawedzi swojej kolumny, dzieki
+    //  czemu zawsze koncza sie w tym samym miejscu niezaleznie od liczby
+    //  cyfr. NICK jest wyrownany do lewej i ma stala dostepna szerokosc.
+    // ----------------------------------------------------------------
+    const float colRankX    = tableLeft + 20.f;
+    const float colRankW    = 50.f;
 
-    auto drawCell = [&](const std::string& str, float x, float y, sf::Color color, bool bold) {
+    const float colNameX    = colRankX + colRankW;     // tableLeft + 70
+    const float colNameW    = 260.f;                   // wiecej miejsca na nick
+
+    const float colLevelsX  = colNameX + colNameW;      // tableLeft + 330
+    const float colLevelsW  = 130.f;
+
+    const float colPointsX  = colLevelsX + colLevelsW;  // tableLeft + 460
+    const float colPointsW  = tableLeft + tableWidth - 16.f - colPointsX;
+
+    enum class Align { Left, Right };
+
+    auto drawCell = [&](const std::string& str, float colX, float colW, float y,
+                        sf::Color color, bool bold, Align align) {
         sf::Text cell = makeText(str, 20);
         cell.setFillColor(color);
         if (bold) cell.setStyle(sf::Text::Bold);
-        cell.setPosition({ x, y });
+
+        sf::FloatRect bounds = cell.getLocalBounds();
+        float posX = colX;
+        if (align == Align::Right) {
+            // Wyrownanie do prawej krawedzi kolumny — koniec tekstu zawsze
+            // w tym samym miejscu (colX + colW), niezaleznie od liczby cyfr.
+            posX = colX + colW - bounds.size.x - bounds.position.x;
+        }
+        cell.setPosition({ posX, y });
         window.draw(cell);
+    };
+
+    // Przycina nick tak, by NIGDY nie mogl wjechac na kolumne POZIOMY,
+    // niezaleznie od dlugosci wpisanej przez gracza.
+    auto clampName = [&](const std::string& name) -> std::string {
+        // Przyblizenie: przy rozmiarze fontu 20 jeden znak ~11-12px.
+        // Zostawiamy margines bezpieczenstwa.
+        const std::size_t maxChars = 16;
+        if (name.size() <= maxChars) return name;
+        return name.substr(0, maxChars - 3) + "...";
     };
 
     // --- Naglowek tabeli ---
     const float headerY = tableTop + 6.f;
-    drawCell("#",      colRank,   headerY, sf::Color(180, 180, 180), true);
-    drawCell("NICK",   colName,   headerY, sf::Color(180, 180, 180), true);
-    drawCell("POZIOMY", colLevels, headerY, sf::Color(180, 180, 180), true);
-    drawCell("PUNKTY", colPoints, headerY, sf::Color(180, 180, 180), true);
+    drawCell("#",       colRankX,   colRankW,   headerY, sf::Color(180, 180, 180), true, Align::Left);
+    drawCell("NICK",    colNameX,   colNameW,   headerY, sf::Color(180, 180, 180), true, Align::Left);
+    drawCell("POZIOMY", colLevelsX, colLevelsW, headerY, sf::Color(180, 180, 180), true, Align::Right);
+    drawCell("PUNKTY",  colPointsX, colPointsW, headerY, sf::Color(180, 180, 180), true, Align::Right);
 
     // Linia oddzielajaca naglowek od wierszy
     sf::RectangleShape headerLine(sf::Vector2f(tableWidth - 4.f, 2.f));
@@ -185,21 +218,21 @@ void Leaderboard::draw(sf::RenderWindow& window) const {
 
         // Subtelne podswietlenie pierwszego miejsca
         sf::Color rowColor = sf::Color::White;
-        if (i == 0) rowColor = sf::Color(255, 215, 0);       // zloto — 1. miejsce
-        else if (i == 1) rowColor = sf::Color(210, 210, 230); // srebro — 2. miejsce
-        else if (i == 2) rowColor = sf::Color(205, 150, 100); // brąz — 3. miejsce
+        if (i == 0) rowColor = sf::Color(255, 215, 0);        // zloto — 1. miejsce
+        else if (i == 1) rowColor = sf::Color(210, 210, 230);  // srebro — 2. miejsce
+        else if (i == 2) rowColor = sf::Color(205, 150, 100);  // brąz — 3. miejsce
 
-        drawCell(std::to_string(i + 1) + ".", colRank, rowY, rowColor, i < 3);
+        drawCell(std::to_string(i + 1) + ".", colRankX, colRankW, rowY, rowColor, i < 3, Align::Left);
 
         if (i < m_scores.size()) {
             const ScoreEntry& entry = m_scores[i];
-            drawCell(entry.name,                         colName,   rowY, rowColor, i < 3);
-            drawCell(std::to_string(entry.levelsPassed),  colLevels, rowY, rowColor, i < 3);
-            drawCell(std::to_string(entry.points),        colPoints, rowY, rowColor, i < 3);
+            drawCell(clampName(entry.name),               colNameX,   colNameW,   rowY, rowColor, i < 3, Align::Left);
+            drawCell(std::to_string(entry.levelsPassed),   colLevelsX, colLevelsW, rowY, rowColor, i < 3, Align::Right);
+            drawCell(std::to_string(entry.points),         colPointsX, colPointsW, rowY, rowColor, i < 3, Align::Right);
         } else {
-            drawCell("---", colName,   rowY, sf::Color(100, 100, 100), false);
-            drawCell("-",   colLevels, rowY, sf::Color(100, 100, 100), false);
-            drawCell("-",   colPoints, rowY, sf::Color(100, 100, 100), false);
+            drawCell("---", colNameX,   colNameW,   rowY, sf::Color(100, 100, 100), false, Align::Left);
+            drawCell("-",   colLevelsX, colLevelsW, rowY, sf::Color(100, 100, 100), false, Align::Right);
+            drawCell("-",   colPointsX, colPointsW, rowY, sf::Color(100, 100, 100), false, Align::Right);
         }
     }
 

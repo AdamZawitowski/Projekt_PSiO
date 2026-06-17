@@ -375,6 +375,7 @@ int main() {
     bullets.reserve(32);
     float shootCooldown = 0.f;              
     static constexpr float SHOOT_DELAY = 0.25f;
+    bool windowHasFocus = true;
 
     std::vector<Checkpoint> checkpoints;
     checkpoints.reserve(8);  // zapobiega realokacji i uniewazneniu wskaznikow sprite->texture
@@ -431,6 +432,10 @@ int main() {
             if (event->is<sf::Event::Closed>()) window.close();
             if (event->is<sf::Event::FocusLost>()) {
                 player.clearMovementInput();
+                windowHasFocus = false;
+            }
+            if (event->is<sf::Event::FocusGained>()) {
+                windowHasFocus = true;
             }
 
             // Rozdzielenie obslugi zdarzen wedlug stanu calej aplikacji.
@@ -543,7 +548,7 @@ int main() {
             player.resolveCollisions(tileMap);
 
             shootCooldown -= dt;
-            if (shootCooldown <= 0.f &&
+            if (windowHasFocus && shootCooldown <= 0.f &&
                 (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Z) ||
                     sf::Keyboard::isKeyPressed(sf::Keyboard::Key::LControl)))
             {
