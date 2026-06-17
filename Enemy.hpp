@@ -11,6 +11,7 @@ public:
     static constexpr float MOVE_SPEED = 80.f;   // px/s
     static constexpr float GRAVITY    = 800.f;  // px/s^2
     static constexpr float MAX_FALL   = 500.f;  // terminal velocity
+    static constexpr int MAX_HEALTH = 2;
 
     // Rozmiar hitboxa — niezalezny od rozmiaru tekstury
     static constexpr float HITBOX_W = 28.f;
@@ -43,10 +44,14 @@ public:
 
     bool isAlive()  const;
     void kill();
+    bool hit();
 
     sf::FloatRect getBounds() const;
 
 private:
+    int m_health = MAX_HEALTH;
+    float m_shakeTimer = 0.f;
+    float m_flashTimer = 0.f;
     void applyGravity(float dt);
     void patrol(float dt, const TileMap& tileMap);
     void resolveCollisions(const TileMap& tileMap);

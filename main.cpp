@@ -624,11 +624,12 @@ int main() {
                 for (Enemy& enemy : enemies) {
                     if (!enemy.isAlive()) continue;
                     if (bullet.getBounds().findIntersection(enemy.getBounds())) {
-                        enemy.kill();
                         bullet.deactivate();
-                        player.addScore(100);
-                        ++killCount;
-                        break;
+                        if (enemy.hit()) {
+                            player.addScore(100);
+                            ++killCount;
+                            break;
+                        }
                     }
                 }
             }

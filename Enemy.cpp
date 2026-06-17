@@ -102,6 +102,16 @@ void Enemy::update(float dt, const TileMap& tileMap) {
     applyGravity(dt);
     patrol(dt, tileMap);
     resolveCollisions(tileMap);
+
+    if (m_shakeTimer > 0.f) {
+        m_shakeTimer -= dt;
+        if (m_shakeTimer < 0.f) m_shakeTimer = 0.f;
+    }
+
+    if (m_flashTimer > 0.f) {
+        m_flashTimer -= dt;
+        if (m_flashTimer < 0.f) m_flashTimer = 0.f;
+    }
 }
 
 // ------------------------------------------------------------------ //
@@ -191,9 +201,22 @@ void Enemy::resolveCollisions(const TileMap& tileMap) {
             m_velocity.x  = 0.f;
         }
     }
-
     // Synchronizuj sprajt po rozwiazaniu kolizji
     applySpriteToHitbox();
+}
+
+// przyjmowanie obrażeń
+bool Enemy::hit() {
+    if (!m_alive) return false;
+
+    --m_health;
+    m_shakeTimer = 0.12f;
+    m_flashTimer = 0.12f;
+    if (m_health <= 0) {
+        m_alive = false;
+        return true;
+    }
+    return false;
 }
 
 // ------------------------------------------------------------------ //
@@ -223,10 +246,38 @@ bool Enemy::checkCollisionWithPlayer(const Player& player) const {
 void Enemy::draw(sf::RenderWindow& window) const {
     if (!m_alive) return;
 
-    if (m_sprite)
-        window.draw(*m_sprite);
-    else
-        window.draw(m_shape);  // fallback gdy brak tekstury
+    sf::Vector2f shakeOffset{ 0.f, 0.f };
+
+    if (m_shakeTimer > 0.f) {
+        float mag = 2.f;
+        shakeOffset.x = ((std::rand() % 3) - 1) * mag;
+    }
+
+    if (m_sprite) {
+        sf::Sprite sprite = *m_sprite; // kopia, hitbox się nie rusza
+        sprite.move(shakeOffset);
+
+        if (m_flashTimer > 0.f) {
+            sprite.setColor(sf::Color(255, 80, 80));
+        }
+        else {
+            sprite.setColor(sf::Color(255, 255, 255));
+        }
+
+        window.draw(sprite);
+
+    }
+    else {
+        sf::RectangleShape shape = m_shape;
+        shape.move(shakeOffset);
+
+        if (m_flashTimer > 0.f)
+            shape.setFillColor(sf::Color(255, 80, 80));
+        else
+            shape.setFillColor(sf::Color::White);
+
+        window.draw(shape);
+    }
 }
 
 // ------------------------------------------------------------------ //
