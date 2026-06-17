@@ -553,15 +553,20 @@ int main() {
                     dir = 1.f;
                 if (player.isOnGround() && player.getVelocity().x == 0.f)
                     dir = 1.f;
+                if (player.isOnGround() && player.getVelocity().x == 0.f) {
+                    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Left) ||
+                        sf::Keyboard::isKeyPressed(sf::Keyboard::Key::A))
+                        dir = -1.f;
+                }
                 float bulletY;
 
                 if (player.isCrouching()) {
                     // strzał przy kucaniu
-                    bulletY = pb.position.y + pb.size.y - 8.f;
+                    bulletY = pb.position.y + pb.size.y - 13.f;
                 }
                 else {
                     // strzał przy staniu
-                    bulletY = pb.position.y + pb.size.y - 14.f;
+                    bulletY = pb.position.y + pb.size.y - 55.f;
                 }
 
                 sf::Vector2f spawnPos = {
