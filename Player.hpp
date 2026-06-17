@@ -64,6 +64,15 @@ public:
 
     void addLife() { m_lives++; }
 
+    static constexpr float TRIPLE_SHOT_DURATION = 8.f; // sekund
+
+    void activateTripleShot() {
+        m_tripleShotActive = true;
+        m_tripleShotTimer = TRIPLE_SHOT_DURATION;
+    }
+    bool  isTripleShotActive()   const { return m_tripleShotActive; }
+    float getTripleShotTimeLeft() const { return m_tripleShotTimer; }
+
     // --- Nick gracza (ustawiany z Menu po NameInput) ---
     void setName(const std::string& name) { m_name = name; }
     const std::string& getName() const { return m_name; }
@@ -133,4 +142,7 @@ private:
     bool m_crouchHeld = false;
 
     std::string m_name;
+
+    float m_tripleShotTimer = 0.f;
+    bool  m_tripleShotActive = false;
 };

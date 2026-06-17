@@ -570,13 +570,22 @@ int main() {
                     bulletY
                 };
 
-                bullets.emplace_back(spawnPos, dir);
+                if (player.isTripleShotActive()) {
+                    bullets.emplace_back(spawnPos, dir, 0.f);
+                    bullets.emplace_back(spawnPos, dir, -15.f); 
+                    bullets.emplace_back(spawnPos, dir, 15.f); 
+                }
+                else {
+                    bullets.emplace_back(spawnPos, dir);
+                }
                 shootCooldown = SHOOT_DELAY;
             }
 
             // --- Update pocisków + kolizje z wrogami ---
             for (Bullet& bullet : bullets) {
                 if (!bullet.isActive()) continue;
+
+                bullet.update(dt, tileMap);
 
                 sf::FloatRect bb = bullet.getBounds();
                 sf::Vector2f center = {
@@ -598,18 +607,16 @@ int main() {
                     TileType t = tileMap.getTile(col, row);
 
                     if (t == TileType::Brick) {
-                        if (tileMap.hitBrick(col, row, items))
-                            bullet.deactivate();
+                        tileMap.hitBrick(col, row, items);
+                        bullet.deactivate();
                         break;
                     }
                     else if (t == TileType::QuestionBlock) {
-                        if (tileMap.hitQuestionBlock(col, row, items))
-                            bullet.deactivate();
+                        tileMap.hitQuestionBlock(col, row, items);
+                        bullet.deactivate();
                         break;
                     }
                 }
-
-                bullet.update(dt, tileMap);
             }
 
             for (Bullet& bullet : bullets) {
@@ -678,8 +685,12 @@ int main() {
                         player.addScore(100);
                     }
                     else if (it.getType() == ItemType::Heart) {
-                        player.addLife();        // ← dodamy za chwilę
-                        player.addScore(300);    // np. więcej punktów
+                        player.addLife();   
+                        player.addScore(300);
+                    }
+                    else if (it.getType() == ItemType::Mushroom) {
+                        player.activateTripleShot();
+                        player.addScore(200);
                     }
 
                 }

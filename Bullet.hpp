@@ -12,6 +12,8 @@ public:
     // direction: +1.f = prawo, -1.f = lewo
     Bullet(sf::Vector2f position, float direction);
 
+    Bullet(sf::Vector2f position, float baseDirection, float angleDegrees);
+
     void update(float dt, const TileMap& tileMap);
     void draw(sf::RenderWindow& window) const;
 
@@ -20,7 +22,9 @@ public:
     void          deactivate()      { m_active = false; }
 
 private:
+    void initShape(sf::Vector2f position);
+
     sf::RectangleShape m_shape;
-    float              m_direction; // +1 lub -1
-    bool               m_active = true;
+    sf::Vector2f m_velocity;
+    bool m_active = true;
 };

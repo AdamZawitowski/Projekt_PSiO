@@ -315,6 +315,14 @@ void Player::update(float dt) {
             m_invincible = false;
         }
     }
+    if (m_tripleShotActive) {
+        m_tripleShotTimer -= dt;
+        if (m_tripleShotTimer <= 0.f) {
+            m_tripleShotTimer = 0.f;
+            m_tripleShotActive = false;
+            
+        }
+    }
 
     applyGravity(dt);
     updateMovement();
