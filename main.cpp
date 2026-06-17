@@ -376,6 +376,7 @@ int main() {
     bullets.reserve(32);
     float shootCooldown = 0.f;              
     static constexpr float SHOOT_DELAY = 0.25f;
+    bool windowHasFocus = true;
 
     std::vector<BrickDebris> brickDebris;
     brickDebris.reserve(32);
@@ -435,6 +436,10 @@ int main() {
             if (event->is<sf::Event::Closed>()) window.close();
             if (event->is<sf::Event::FocusLost>()) {
                 player.clearMovementInput();
+                windowHasFocus = false;
+            }
+            if (event->is<sf::Event::FocusGained>()) {
+                windowHasFocus = true;
             }
 
             // Rozdzielenie obslugi zdarzen wedlug stanu calej aplikacji.
@@ -555,7 +560,7 @@ int main() {
             }
 
             shootCooldown -= dt;
-            if (shootCooldown <= 0.f &&
+            if (windowHasFocus && shootCooldown <= 0.f &&
                 (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Z) ||
                     sf::Keyboard::isKeyPressed(sf::Keyboard::Key::LControl)))
             {
