@@ -57,9 +57,6 @@ bool isTopGroundRow(const TileMap& tm, int col, int row) {
     return tm.getTile(col, row + 1) == TileType::Ground;
 }
 
-bool isPipeTopTile(const TileMap& tm, int col, int row) {
-    return tm.getTile(col, row - 1) != TileType::Platform;
-}
 
 void drawTileSprite(sf::RenderWindow& w, const sf::Texture& tex, int col, int row) {
     const float TS = TileMap::TILE_SIZE;
@@ -121,8 +118,7 @@ void drawTileMap(sf::RenderWindow& window,
             case TileType::MetalBlock:
                 drawTileSprite(window, tex.dirt2, c, r);   break;
             case TileType::Platform:
-                if (isPipeTopTile(tileMap, c, r))
-                    drawTileSprite(window, tex.pipe, c, r);
+                drawTileSprite(window, tex.pipe, c, r);
                 break;
             default: break;
             }
@@ -419,7 +415,19 @@ int main() {
         // --- Poziom 2 ---
         {
             "level2.txt",
-            { {500.f, 316.f}, {900.f, 316.f}, {1400.f, 316.f} },
+            {
+        {600.f,        316.f},   // kol. ~18, start na pierwszym odcinku ziemi
+        {34 * 32.f,    316.f},   // kol. 34-39, odcinek po pierwszej dziurze
+        {44 * 32.f,    316.f},   // kol. 44-47
+        {60 * 32.f,    316.f},   // kol. 58-65
+        {88 * 32.f,    316.f},   // kol. 87-91
+        {96 * 32.f,    316.f},   // kol. 94-99 (blisko checkpointu x=3000)
+        {120 * 32.f,   316.f},   // kol. 120-121
+        {165 * 32.f,   316.f},   // kol. 163-167
+        {184 * 32.f,   316.f},   // kol. 182-185
+        {212 * 32.f,   316.f},   // kol. 210-213
+        {217 * 32.f,   316.f}    // kol. 216-219
+    },
             { {3000.f, 316.f} },
             { 96.f, 316.f }
         }
@@ -760,6 +768,7 @@ int main() {
                 const sf::Vector2f startPos = levelConfigs[currentLevel].playerStart;
                 player.setSpawnPoint(startPos);
                 player.respawn();                  // teleportuje do spawn pointa
+                player.clearMovementInput();
 
                 // Reset kamery natychmiastowy (bez lerp) — zeby nie "przeskoczyc" przez mape
                 gameView.setCenter({ viewSize.x / 2.f, viewSize.y / 2.f });
@@ -1027,6 +1036,7 @@ int main() {
                     player.addScore(timeBonus);
 
                     currentLevel++;                            // [LEVEL2] nastepny poziom
+                    player.clearMovementInput();
                     inLevelTransition   = true;
                     levelTransitionTimer = LEVEL_TRANSITION_DURATION;
                 }
