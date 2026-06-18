@@ -1,6 +1,6 @@
 # Projekt_PSiO
 
---- Sterowanie: ---
+Sterowanie:
 Ruch postaci: wsad lub strzałki
 Skok: spacja lub w lub strzałka w górę
 Strzelanie: ctrl lub z
