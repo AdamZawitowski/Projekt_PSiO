@@ -8,7 +8,7 @@ class Player;
 
 class Enemy {
 public:
-    static constexpr float MOVE_SPEED = 80.f;   // px/s
+    static constexpr float MOVE_SPEED = 120.f;   // px/s
     static constexpr float GRAVITY    = 800.f;  // px/s^2
     static constexpr float MAX_FALL   = 500.f;  // terminal velocity
     static constexpr int MAX_HEALTH = 2;

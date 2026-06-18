@@ -99,6 +99,7 @@ private:
     void updateAnimation(float dt);
     void setState(PlayerState newState);
     void applySpriteToHitbox();
+    bool canStandUp(const TileMap& tileMap) const;
 
     bool loadTextures();
     bool loadAudio();
@@ -151,4 +152,6 @@ private:
     bool  m_tripleShotActive = false;
 
     std::optional<sf::Vector2f> m_lastBrickHit;
+
+    bool m_wantStandUp = false;
 };

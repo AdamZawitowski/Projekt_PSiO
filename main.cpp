@@ -362,11 +362,25 @@ int main() {
     Player player;
 
     std::vector<Enemy> enemies;
-    // reserve zapobiega realokacji przy emplace_back — bez tego vector
-    // moze przeniesc obiekty w pamieci i unieważnic wskazniki sprite->texture
-    enemies.reserve(8);
-    enemies.emplace_back(sf::Vector2f(400.f, 380.f));
+    
+    enemies.reserve(17);
     enemies.emplace_back(sf::Vector2f(600.f, 380.f));
+    enemies.emplace_back(sf::Vector2f(38 * 32.f, 352.f));
+    enemies.emplace_back(sf::Vector2f(62 * 32.f, 352.f));
+    enemies.emplace_back(sf::Vector2f(80 * 32.f, 192.f));
+    enemies.emplace_back(sf::Vector2f(105 * 32.f, 352.f));
+    enemies.emplace_back(sf::Vector2f(130 * 32.f, 352.f));
+    enemies.emplace_back(sf::Vector2f(158 * 32.f, 352.f));
+    enemies.emplace_back(sf::Vector2f(185 * 32.f, 352.f));
+    enemies.emplace_back(sf::Vector2f(215 * 32.f, 256.f));
+    enemies.emplace_back(sf::Vector2f(235 * 32.f, 352.f));
+    enemies.emplace_back(sf::Vector2f(255 * 32.f, 192.f));
+    enemies.emplace_back(sf::Vector2f(54 * 32.f, 352.f));
+    enemies.emplace_back(sf::Vector2f(71 * 32.f, 352.f));
+    enemies.emplace_back(sf::Vector2f(170 * 32.f, 352.f));
+    enemies.emplace_back(sf::Vector2f(95 * 32.f, 352.f));
+    enemies.emplace_back(sf::Vector2f(200 * 32.f, 352.f));
+    enemies.emplace_back(sf::Vector2f(80 * 32.f, 352.f));
 
     std::vector<Item> items;
     player.setItemList(&items);
@@ -383,8 +397,8 @@ int main() {
 
     std::vector<Checkpoint> checkpoints;
     checkpoints.reserve(8);  // zapobiega realokacji i uniewazneniu wskaznikow sprite->texture
-    checkpoints.emplace_back(sf::Vector2f(5280.f, 360.f));
-    checkpoints.emplace_back(sf::Vector2f(2496.f, 360.f));
+    checkpoints.emplace_back(sf::Vector2f(5280.f, 311.f));
+    checkpoints.emplace_back(sf::Vector2f(2496.f, 311.f));
 
 
     GoalFlag goalFlag(sf::Vector2f(levelWidth - 96.f, 352.f));
@@ -500,9 +514,25 @@ int main() {
                         brickDebris.clear();
 
                         enemies.clear();
-                        enemies.reserve(8);
-                        enemies.emplace_back(sf::Vector2f(400.f, 380.f));
+
+                        enemies.reserve(17);
                         enemies.emplace_back(sf::Vector2f(600.f, 380.f));
+                        enemies.emplace_back(sf::Vector2f(38 * 32.f, 352.f));
+                        enemies.emplace_back(sf::Vector2f(62 * 32.f, 352.f));
+                        enemies.emplace_back(sf::Vector2f(80 * 32.f, 192.f));
+                        enemies.emplace_back(sf::Vector2f(105 * 32.f, 352.f));
+                        enemies.emplace_back(sf::Vector2f(130 * 32.f, 352.f));
+                        enemies.emplace_back(sf::Vector2f(158 * 32.f, 352.f));
+                        enemies.emplace_back(sf::Vector2f(185 * 32.f, 352.f));
+                        enemies.emplace_back(sf::Vector2f(215 * 32.f, 256.f));
+                        enemies.emplace_back(sf::Vector2f(235 * 32.f, 352.f));
+                        enemies.emplace_back(sf::Vector2f(255 * 32.f, 192.f));
+                        enemies.emplace_back(sf::Vector2f(54 * 32.f, 352.f));
+                        enemies.emplace_back(sf::Vector2f(71 * 32.f, 352.f));
+                        enemies.emplace_back(sf::Vector2f(170 * 32.f, 352.f));
+                        enemies.emplace_back(sf::Vector2f(95 * 32.f, 352.f));
+                        enemies.emplace_back(sf::Vector2f(200 * 32.f, 352.f));
+                        enemies.emplace_back(sf::Vector2f(80 * 32.f, 352.f));
                         killCount      = 0;
                         timeLeft       = LEVEL_TIME;
                         bonusRemaining = 0.f;

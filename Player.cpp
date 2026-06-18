@@ -365,10 +365,7 @@ void Player::handleInput(float dt) {
         if (m_texturesLoaded) setState(PlayerState::Crawl);
     }
     else if (!wantCrouch && m_isCrouching) {
-        m_isCrouching = false;
-        const float diff = HITBOX_H - HITBOX_CROUCH_H;
-        m_shape.move({ 0.f, -diff });
-        m_shape.setSize({ HITBOX_W, HITBOX_H });
+        m_wantStandUp = true;
     }
 
     if (!m_isCrouching && 
@@ -394,7 +391,8 @@ void Player::applyMovement(float dt) {
 //  Ruch oparty o stan klawiszy                                        //
 // ------------------------------------------------------------------ //
 void Player::updateMovement() {
-    const float speed = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::LShift)
+    const float speed = m_isCrouching ? MOVE_SPEED * 0.75f :
+        sf::Keyboard::isKeyPressed(sf::Keyboard::Key::LShift)
         ? SPRINT_SPEED : MOVE_SPEED;
 
     m_velocity.x = 0.f;
@@ -415,10 +413,7 @@ void Player::updateMovement() {
         if (m_texturesLoaded) setState(PlayerState::Crawl);
     }
     else if (!m_crouchHeld && m_isCrouching) {
-        m_isCrouching = false;
-        const float diff = HITBOX_H - HITBOX_CROUCH_H;
-        m_shape.move({ 0.f, -diff });
-        m_shape.setSize({ HITBOX_W, HITBOX_H });
+        m_wantStandUp = true;
     }
 }
 
@@ -428,6 +423,16 @@ void Player::updateMovement() {
 void Player::resolveCollisions(TileMap& tileMap) {
     // Podczas smierci postac leci swobodnie — brak kolizji
     if (m_isDying) return;
+
+    if (m_wantStandUp) {
+        m_wantStandUp = false;
+        if (canStandUp(tileMap)) {
+            m_isCrouching = false;
+            const float diff = HITBOX_H - HITBOX_CROUCH_H;
+            m_shape.move({ 0.f, -diff });
+            m_shape.setSize({ HITBOX_W, HITBOX_H });
+        }
+    }
 
     const float TS = TileMap::TILE_SIZE;
     bool landedOnGround = false;
@@ -570,4 +575,29 @@ void Player::respawn() {
     m_invincible = true;
     m_invincibleTimer = 1.5f;
 
+}
+
+// ------------------------------------------------------------------ //
+//  Sprawdza czy nad postacia jest dosc miejsca zeby wstac              //
+// ------------------------------------------------------------------ //
+bool Player::canStandUp(const TileMap& tileMap) const {
+    const float TS = TileMap::TILE_SIZE;
+    sf::FloatRect b = m_shape.getGlobalBounds();
+
+    const float diff = HITBOX_H - HITBOX_CROUCH_H;
+    const float newTop = b.position.y - diff;
+
+    const int leftCol = static_cast<int>(std::floor(b.position.x / TS));
+    const int rightCol = static_cast<int>(std::floor((b.position.x + HITBOX_W - 0.001f) / TS));
+
+    const int topRowNew = static_cast<int>(std::floor(newTop / TS));
+    const int topRowOld = static_cast<int>(std::floor(b.position.y / TS));
+
+    for (int row = topRowNew; row < topRowOld; ++row) {
+        for (int col = leftCol; col <= rightCol; ++col) {
+            if (tileMap.isSolid(col, row))
+                return false;
+        }
+    }
+    return true;
 }
