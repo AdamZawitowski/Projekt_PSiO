@@ -145,4 +145,8 @@ private:
 
     float m_tripleShotTimer = 0.f;
     bool  m_tripleShotActive = false;
+
+    // FIX 6: pomija grawitacje przez jedna klatke po respawnie,
+    // zapobiega przebijaniu przez podloge przy duzym dt
+    bool  m_skipGravityOneFrame = false;
 };
