@@ -134,14 +134,12 @@ void drawTileMap(sf::RenderWindow& window,
 // ================================================================== //
 //  HUD                                                                 //
 // ================================================================== //
-// Formatuje liczbe do N cyfr z wiodacymi zerami: 150 -> "000150"
 std::string formatScore(int score, int digits = 6) {
     std::ostringstream oss;
     oss << std::setw(digits) << std::setfill('0') << std::max(0, score);
     return oss.str();
 }
 
-// Formatuje czas MM:SS
 std::string formatTime(int seconds) {
     seconds = std::max(0, seconds);
     std::ostringstream oss;
@@ -150,18 +148,17 @@ std::string formatTime(int seconds) {
     return oss.str();
 }
 
+// [LEVEL2] Dodano parametr currentLevel do wyswietlania numeru poziomu w HUD
 void drawHUD(sf::RenderWindow& window, const sf::Font& font,
              int lives, int score, float timeLeft,
-             const sf::Texture& texHeart)
+             const sf::Texture& texHeart, int currentLevel)
 {
     const float W = static_cast<float>(window.getSize().x);
 
-    // Pasek tla
     sf::RectangleShape bar({ W, 40.f });
     bar.setFillColor(sf::Color(0, 0, 0, 200));
     window.draw(bar);
 
-    // Ikony zyc — sprajt heart.png skalowany do 28x28px, odstep 40px
     {
         sf::Vector2u sz = texHeart.getSize();
         for (int i = 0; i < lives; ++i) {
@@ -172,7 +169,13 @@ void drawHUD(sf::RenderWindow& window, const sf::Font& font,
         }
     }
 
-    // SCORE
+    // [LEVEL2] Etykieta aktualnego poziomu po lewej stronie pod serduszkami
+    sf::Text levelLabel(font, "POZIOM " + std::to_string(currentLevel), 13);
+    levelLabel.setFillColor(sf::Color(255, 220, 80));
+    levelLabel.setStyle(sf::Text::Bold);
+    levelLabel.setPosition({ 20.f, 26.f });
+    window.draw(levelLabel);
+
     sf::Text scoreLabel(font, "SCORE", 13);
     scoreLabel.setFillColor(sf::Color(180, 180, 180));
     scoreLabel.setPosition({ W / 2.f - 80.f, 4.f });
@@ -184,13 +187,11 @@ void drawHUD(sf::RenderWindow& window, const sf::Font& font,
     scoreVal.setPosition({ W / 2.f - 80.f, 18.f });
     window.draw(scoreVal);
 
-    // TIME
     sf::Text timeLabel(font, "TIME", 13);
     timeLabel.setFillColor(sf::Color(180, 180, 180));
     timeLabel.setPosition({ W - 100.f, 4.f });
     window.draw(timeLabel);
 
-    // Czerwony czas gdy < 30s
     sf::Color timeColor = (timeLeft < 30.f) ? sf::Color(255, 80, 80) : sf::Color::White;
     sf::Text timeVal(font, formatTime(static_cast<int>(timeLeft)), 18);
     timeVal.setFillColor(timeColor);
@@ -201,37 +202,59 @@ void drawHUD(sf::RenderWindow& window, const sf::Font& font,
 
 // ================================================================== //
 //  Overlay (GameOver / Win)                                            //
+//  Napisy sa automatycznie skalowane tak, by nigdy nie wychodzily      //
+//  poza szerokosc okna (margines 20px z kazdej strony).               //
 // ================================================================== //
 void drawOverlay(sf::RenderWindow& window, const sf::Font& font,
                  const std::string& title, const std::string& subtitle,
                  sf::Color titleColor)
 {
-    sf::RectangleShape bg({ static_cast<float>(window.getSize().x),
-                            static_cast<float>(window.getSize().y) });
+    const float W  = static_cast<float>(window.getSize().x);
+    const float H  = static_cast<float>(window.getSize().y);
+    const float margin = 20.f;
+    const float maxW   = W - 2.f * margin;
+
+    sf::RectangleShape bg({ W, H });
     bg.setFillColor(sf::Color(0, 0, 0, 160));
     window.draw(bg);
 
+    // --- Tytul (GAME OVER / GRA UKONCZONA itp.) ---
     sf::Text t(font, title, 48);
     t.setFillColor(titleColor);
     t.setStyle(sf::Text::Bold);
-    sf::FloatRect tb = t.getLocalBounds();
-    t.setOrigin({ tb.position.x + tb.size.x / 2.f,
-                  tb.position.y + tb.size.y / 2.f });
-    t.setPosition({ window.getSize().x / 2.f,
-                    window.getSize().y / 2.f - 60.f });
+    {
+        sf::FloatRect tb = t.getLocalBounds();
+        // Zmniejsz czcionke jesli napis jest za szeroki
+        if (tb.size.x > maxW) {
+            const unsigned int reducedSize =
+                static_cast<unsigned int>(48u * (maxW / tb.size.x));
+            t.setCharacterSize(std::max(12u, reducedSize));
+            tb = t.getLocalBounds();
+        }
+        t.setOrigin({ tb.position.x + tb.size.x / 2.f,
+                      tb.position.y + tb.size.y / 2.f });
+    }
+    t.setPosition({ W / 2.f, H / 2.f - 60.f });
     window.draw(t);
 
+    // --- Podtytul (instrukcja R / M itp.) ---
     sf::Text s(font, subtitle, 18);
     s.setFillColor(sf::Color::White);
-    sf::FloatRect sb = s.getLocalBounds();
-    s.setOrigin({ sb.position.x + sb.size.x / 2.f,
-                  sb.position.y + sb.size.y / 2.f });
-    s.setPosition({ window.getSize().x / 2.f,
-                    window.getSize().y / 2.f + 20.f });
+    {
+        sf::FloatRect sb = s.getLocalBounds();
+        if (sb.size.x > maxW) {
+            const unsigned int reducedSize =
+                static_cast<unsigned int>(18u * (maxW / sb.size.x));
+            s.setCharacterSize(std::max(10u, reducedSize));
+            sb = s.getLocalBounds();
+        }
+        s.setOrigin({ sb.position.x + sb.size.x / 2.f,
+                      sb.position.y + sb.size.y / 2.f });
+    }
+    s.setPosition({ W / 2.f, H / 2.f + 20.f });
     window.draw(s);
 }
 
-// Odliczanie bonusu czasowego po wygranej
 void drawBonusCountdown(sf::RenderWindow& window, const sf::Font& font,
                         float bonusRemaining, int bonusEarned)
 {
@@ -271,6 +294,53 @@ void drawBonusCountdown(sf::RenderWindow& window, const sf::Font& font,
     window.draw(earned);
 }
 
+// [LEVEL2] Ekran przejsciowy miedzy poziomami —
+//          czarne tlo + duzy napis + pasek postepu odliczania.
+void drawLevelTransition(sf::RenderWindow& window, const sf::Font& font,
+                         int nextLevel, float timer, float duration)
+{
+    sf::RectangleShape bg({ static_cast<float>(window.getSize().x),
+                            static_cast<float>(window.getSize().y) });
+    bg.setFillColor(sf::Color::Black);
+    window.draw(bg);
+
+    sf::Text t(font, "POZIOM UKONCZONY!", 48);
+    t.setFillColor(sf::Color::Yellow);
+    t.setStyle(sf::Text::Bold);
+    sf::FloatRect tb = t.getLocalBounds();
+    t.setOrigin({ tb.position.x + tb.size.x / 2.f,
+                  tb.position.y + tb.size.y / 2.f });
+    t.setPosition({ window.getSize().x / 2.f,
+                    window.getSize().y / 2.f - 70.f });
+    window.draw(t);
+
+    sf::Text sub(font, "LADOWANIE POZIOMU " + std::to_string(nextLevel) + "...", 28);
+    sub.setFillColor(sf::Color::White);
+    sf::FloatRect sb = sub.getLocalBounds();
+    sub.setOrigin({ sb.position.x + sb.size.x / 2.f,
+                    sb.position.y + sb.size.y / 2.f });
+    sub.setPosition({ window.getSize().x / 2.f,
+                      window.getSize().y / 2.f });
+    window.draw(sub);
+
+    // Pasek postepu odliczania (maleje od pelnego do pustego)
+    const float barW = 400.f;
+    const float barH = 10.f;
+    const float barX = (window.getSize().x - barW) / 2.f;
+    const float barY = window.getSize().y / 2.f + 50.f;
+    const float fill = barW * (1.f - timer / duration);  // rosnie w prawo
+
+    sf::RectangleShape barBg({ barW, barH });
+    barBg.setPosition({ barX, barY });
+    barBg.setFillColor(sf::Color(60, 60, 60));
+    window.draw(barBg);
+
+    sf::RectangleShape barFg({ fill, barH });
+    barFg.setPosition({ barX, barY });
+    barFg.setFillColor(sf::Color(80, 200, 80));
+    window.draw(barFg);
+}
+
 } // namespace
 
 // ================================================================== //
@@ -282,7 +352,6 @@ int main() {
     sf::RenderWindow window(sf::VideoMode({ 800, 480 }), "Mario Contra 2");
     window.setFramerateLimit(60);
 
-    // --- Czcionka ---
     sf::Font font;
     bool fontLoaded = false;
     if (!font.openFromFile("assets/font.ttf"))
@@ -290,31 +359,108 @@ int main() {
     else
         fontLoaded = true;
 
-    // --- Stan calej aplikacji (menu / nick / gra / pauza / leaderboard) ---
     AppState appState = AppState::MainMenu;
 
-    // --- Menu glowne + ekran wpisywania nicku ---
     Menu menu;
     if (!menu.loadFont("assets/font.ttf"))
         std::cerr << "[main] Menu: brak czcionki assets/font.ttf\n";
 
-    std::string playerName; // wypelniane przez Menu po NameInput
+    std::string playerName;
 
-    // --- Tablica wynikow ---
     static const std::string LEADERBOARD_FILE = "leaderboard.txt";
     Leaderboard leaderboard;
     if (!leaderboard.loadFont("assets/font.ttf"))
         std::cerr << "[main] Leaderboard: brak czcionki assets/font.ttf\n";
     leaderboard.loadFromFile(LEADERBOARD_FILE);
 
-    // --- Tekstura serduszka do HUD ---
     sf::Texture texHeart;
     if (!texHeart.loadFromFile("assets/heart.png"))
         std::cerr << "[main] brak: assets/heart.png\n";
 
-    // --- Mapa ---
+    // ----------------------------------------------------------------
+    // [LEVEL2] Konfiguracja obu poziomow w jednym miejscu.
+    //          Dodajac trzeci poziom wystarczy dopisac tu jeden wpis.
+    // ----------------------------------------------------------------
+    struct LevelConfig {
+        std::string mapFile;          // sciezka do pliku mapy
+        std::vector<sf::Vector2f> enemySpawns;     // pozycje startowe wrogow
+        std::vector<sf::Vector2f> checkpointPos;   // pozycje checkpointow
+        sf::Vector2f              playerStart;     // pozycja startowa gracza
+    };
+
+    const std::array<LevelConfig, 2> levelConfigs = {{
+        // --- Poziom 1 ---
+        // spawnY = (row_ziemi * TILE_SIZE) - HITBOX_H = 13*32 - 100 = 316
+        // Nogi gracza laduja na y=416 = gorna krawedz kafelka row=13 (pierwsza warstwa ziemi)
+        {
+            "level1.txt",
+            {
+                {600.f,        380.f},
+                {38 * 32.f,   352.f},
+                {62 * 32.f,   352.f},
+                {80 * 32.f,   192.f},
+                {105 * 32.f,  352.f},
+                {130 * 32.f,  352.f},
+                {158 * 32.f,  352.f},
+                {185 * 32.f,  352.f},
+                {215 * 32.f,  256.f},
+                {235 * 32.f,  352.f},
+                {255 * 32.f,  192.f},
+                {54 * 32.f,   352.f},
+                {71 * 32.f,   352.f},
+                {170 * 32.f,  352.f},
+                {95 * 32.f,   352.f},
+                {200 * 32.f,  352.f},
+                {80 * 32.f,   352.f}
+            },
+            { {2496.f, 316.f}, {5280.f, 316.f} },
+            { 96.f, 316.f }
+        },
+        // --- Poziom 2 ---
+        {
+            "level2.txt",
+            { {500.f, 316.f}, {900.f, 316.f}, {1400.f, 316.f} },
+            { {3000.f, 316.f} },
+            { 96.f, 316.f }
+        }
+    }};
+
+    // [LEVEL2] Aktualny poziom (0-indeksowany wewnetrznie, wyswietlamy jako 1-based)
+    int currentLevel = 0;  // 0 = poziom 1, 1 = poziom 2
+
+    // ----------------------------------------------------------------
+    // [LEVEL2] Lamda inicjalizujaca swiat gry dla podanego poziomu.
+    //          Uzywa LevelConfig — nie dubluje kodu przy restarcie.
+    // ----------------------------------------------------------------
     TileMap tileMap;
-    if (!tileMap.loadFromFile("level1.txt")) return 1;
+    std::vector<Enemy>      enemies;
+    std::vector<Checkpoint> checkpoints;
+    std::unique_ptr<GoalFlag> goalFlag;   // [LEVEL2] unique_ptr bo tworzymy go po zaladowaniu mapy
+    float levelWidth = 0.f;
+
+    auto initLevel = [&](int levelIdx) {
+        const LevelConfig& cfg = levelConfigs[levelIdx];
+
+        if (!tileMap.loadFromFile(cfg.mapFile)) {
+            std::cerr << "[main] Nie mozna zaladowac mapy: " << cfg.mapFile << "\n";
+        }
+        levelWidth = tileMap.getSizeInPixels().x;
+
+        enemies.clear();
+        enemies.reserve(static_cast<std::size_t>(cfg.enemySpawns.size()) + 4);
+        for (const sf::Vector2f& pos : cfg.enemySpawns)
+            enemies.emplace_back(pos);
+
+        checkpoints.clear();
+        checkpoints.reserve(static_cast<std::size_t>(cfg.checkpointPos.size()) + 4);
+        for (const sf::Vector2f& pos : cfg.checkpointPos)
+            checkpoints.emplace_back(pos);
+
+        goalFlag = std::make_unique<GoalFlag>(sf::Vector2f(levelWidth - 96.f, 352.f));
+    };
+
+    // Pierwsze ladowanie — poziom 1
+    initLevel(currentLevel);
 
     TileTextures tileTextures;
     if (!tileTextures.load())
@@ -337,7 +483,7 @@ int main() {
         }
     };
 
-    loadSoundBuffer(loseBuffer, "assets/sounds/lose_sound.wav", loseSoundLoaded);
+    loadSoundBuffer(loseBuffer,     "assets/sounds/lose_sound.wav",      loseSoundLoaded);
     loadSoundBuffer(endLevelBuffer, "assets/sounds/end_level_sound.wav", endLevelSoundLoaded);
 
     loseSound.emplace(loseBuffer);
@@ -345,92 +491,158 @@ int main() {
     loseSound->setVolume(90.f);
     endLevelSound->setVolume(90.f);
 
+    // ----------------------------------------------------------------
+    // MUZYKA MENU — osobny utwor odtwarzany wylacznie w menu/name input
+    // ----------------------------------------------------------------
+    sf::Music menuMusic;
+    bool menuMusicLoaded = false;
+    if (!menuMusic.openFromFile("assets/music/menu.wav")) {
+        std::cerr << "[main] brak: assets/music/menu.wav (opcjonalne)\n";
+    } else {
+        menuMusic.setLooping(true);
+        menuMusic.setVolume(60.f);
+        menuMusic.play();   // startujemy od razu — aplikacja otwiera sie w menu
+        menuMusicLoaded = true;
+    }
+
+    // ----------------------------------------------------------------
+    // [LEVEL2] Muzyka rozgrywki — osobne utwory dla kazdego poziomu
+    // ----------------------------------------------------------------
     sf::Music musicLevel1;
-    bool musicLoaded = false;
+    sf::Music musicLevel2;
+    bool musicLevel1Loaded = false;
+    bool musicLevel2Loaded = false;
+
     if (!musicLevel1.openFromFile("assets/music/music_level_1.wav")) {
         std::cerr << "[main] brak: assets/music/music_level_1.wav\n";
     } else {
         musicLevel1.setLooping(true);
         musicLevel1.setVolume(55.f);
-        musicLevel1.play();
-        musicLoaded = true;
+        // NIE startujemy — zacznie grac dopiero po wejsciu do rozgrywki
+        musicLevel1Loaded = true;
     }
 
-    const float levelWidth = tileMap.getSizeInPixels().x;
+    if (!musicLevel2.openFromFile("assets/music/music_level_2.wav")) {
+        std::cerr << "[main] brak: assets/music/music_level_2.wav (opcjonalne)\n";
+    } else {
+        musicLevel2.setLooping(true);
+        musicLevel2.setVolume(55.f);
+        musicLevel2Loaded = true;
+        // NIE startujemy — zacznie grac dopiero po przejsciu do poziomu 2
+    }
+
+    // Pomocnicza lamda: zatrzymuje CALA muzyke rozgrywki (obie sciezki)
+    auto stopGameplayMusic = [&]() {
+        musicLevel1.stop();
+        musicLevel2.stop();
+    };
+
+    // Pomocnicza lamda: pauza/wznawianie muzyki rozgrywki (Escape)
+    auto pauseGameplayMusic = [&]() {
+        if (musicLevel1.getStatus() == sf::Music::Status::Playing) musicLevel1.pause();
+        if (musicLevel2.getStatus() == sf::Music::Status::Playing) musicLevel2.pause();
+    };
+    auto resumeGameplayMusic = [&]() {
+        // Wznawiamy tylko te, ktora byla grana (nie startujemy obu naraz)
+        if (musicLevel1.getStatus() == sf::Music::Status::Paused) musicLevel1.play();
+        if (musicLevel2.getStatus() == sf::Music::Status::Paused) musicLevel2.play();
+    };
+
+    // [LEVEL2] Pomocnicza lamda przelaczajaca muzyk miedzy poziomami rozgrywki
+    auto switchMusic = [&](int levelIdx) {
+        musicLevel1.stop();
+        musicLevel2.stop();
+        if (levelIdx == 0 && musicLevel1Loaded) musicLevel1.play();
+        if (levelIdx == 1 && musicLevel2Loaded) musicLevel2.play();
+        // Dla ewentualnych dalszych poziomow muzyka poziomu 2 gra dalej
+        if (levelIdx > 1  && musicLevel2Loaded) musicLevel2.play();
+    };
 
     // --- Obiekty gry ---
     Player player;
-
-    std::vector<Enemy> enemies;
-    
-    enemies.reserve(17);
-    enemies.emplace_back(sf::Vector2f(600.f, 380.f));
-    enemies.emplace_back(sf::Vector2f(38 * 32.f, 352.f));
-    enemies.emplace_back(sf::Vector2f(62 * 32.f, 352.f));
-    enemies.emplace_back(sf::Vector2f(80 * 32.f, 192.f));
-    enemies.emplace_back(sf::Vector2f(105 * 32.f, 352.f));
-    enemies.emplace_back(sf::Vector2f(130 * 32.f, 352.f));
-    enemies.emplace_back(sf::Vector2f(158 * 32.f, 352.f));
-    enemies.emplace_back(sf::Vector2f(185 * 32.f, 352.f));
-    enemies.emplace_back(sf::Vector2f(215 * 32.f, 256.f));
-    enemies.emplace_back(sf::Vector2f(235 * 32.f, 352.f));
-    enemies.emplace_back(sf::Vector2f(255 * 32.f, 192.f));
-    enemies.emplace_back(sf::Vector2f(54 * 32.f, 352.f));
-    enemies.emplace_back(sf::Vector2f(71 * 32.f, 352.f));
-    enemies.emplace_back(sf::Vector2f(170 * 32.f, 352.f));
-    enemies.emplace_back(sf::Vector2f(95 * 32.f, 352.f));
-    enemies.emplace_back(sf::Vector2f(200 * 32.f, 352.f));
-    enemies.emplace_back(sf::Vector2f(80 * 32.f, 352.f));
 
     std::vector<Item> items;
     player.setItemList(&items);
     items.reserve(32);
 
+    // [LEVEL2] Ustaw pozycje startowa gracza wg konfiguracji poziomu
+    player.setSpawnPoint(levelConfigs[currentLevel].playerStart);
+
     std::vector<Bullet> bullets;
     bullets.reserve(32);
-    float shootCooldown = 0.f;              
+    float shootCooldown = 0.f;
     static constexpr float SHOOT_DELAY = 0.25f;
     bool windowHasFocus = true;
 
     std::vector<BrickDebris> brickDebris;
     brickDebris.reserve(32);
 
-    std::vector<Checkpoint> checkpoints;
-    checkpoints.reserve(8);  // zapobiega realokacji i uniewazneniu wskaznikow sprite->texture
-    checkpoints.emplace_back(sf::Vector2f(5280.f, 311.f));
-    checkpoints.emplace_back(sf::Vector2f(2496.f, 311.f));
-
-
-    GoalFlag goalFlag(sf::Vector2f(levelWidth - 96.f, 352.f));
-
     int killCount = 0;
 
-    // --- Stan gry ---
     GameState gameState = GameState::Playing;
 
-    // --- Licznik czasu poziomu ---
-    static constexpr float LEVEL_TIME = 300.f;  // 5 minut
+    static constexpr float LEVEL_TIME = 300.f;
     float timeLeft = LEVEL_TIME;
 
-    // --- Bonus za czas po wygranej ---
-    float bonusRemaining = 0.f;   // sekund do odliczenia
-    int   bonusEarned    = 0;     // punkty juz przyznane
-    static constexpr float BONUS_DRAIN_RATE = 60.f; // sekund/sekunde (szybkie odliczanie)
+    float bonusRemaining = 0.f;
+    int   bonusEarned    = 0;
+    static constexpr float BONUS_DRAIN_RATE = 60.f;
 
-    // Zapobiega wielokrotnemu dopisaniu tego samego wyniku do tablicy
-    // wynikow w kolejnych klatkach po GameOver/Win. Resetowane przy R.
     bool scoreSaved = false;
 
-    // --- Screen shake ---
-    float shakeTimer     = 0.f;
+    // [LEVEL2] Stan i timer ekranu przejsciowego miedzy poziomami
+    bool  inLevelTransition      = false;
+    float levelTransitionTimer   = 0.f;
+    static constexpr float LEVEL_TRANSITION_DURATION = 2.5f;  // sekundy
+
+    float shakeTimer = 0.f;
     static constexpr float SHAKE_DURATION  = 0.4f;
     static constexpr float SHAKE_MAGNITUDE = 6.f;
+
+    // [FIX3] Timer auto-powrotu do menu po wyswietleniu ekranu koncowego
+    float winScreenTimer = 0.f;
+    static constexpr float WIN_SCREEN_DURATION = 6.f;
 
     // --- Kamera ---
     const sf::Vector2f viewSize(static_cast<float>(window.getSize().x),
                                 static_cast<float>(window.getSize().y));
-    const float maxCameraCenterX = std::max(viewSize.x / 2.f,
-                                            levelWidth - viewSize.x / 2.f);
+
+    // [LEVEL2] maxCameraCenterX musi byc przeliczane po zmianie mapy —
+    //          uzywamy lambdy, zeby nie duplikowac kodu
+    auto computeMaxCamX = [&]() {
+        return std::max(viewSize.x / 2.f, levelWidth - viewSize.x / 2.f);
+    };
+    float maxCameraCenterX = computeMaxCamX();
+
+    // [FIX3] Pelny reset gry — wywolywany przy R i przy powrocie do menu po wygranej.
+    // Centralizuje logike resetu zamiast duplikowac ja w kilku miejscach.
+    // UWAGA: winScreenTimer musi byc zdefiniowany wczesniej (jest powyzej).
+    auto fullGameReset = [&]() {
+        currentLevel = 0;
+
+        player = Player();
+        player.setName(playerName);
+        player.setItemList(&items);
+        player.setSpawnPoint(levelConfigs[0].playerStart);
+        items.clear();
+        bullets.clear();
+        shootCooldown = 0.f;
+
+        initLevel(0);
+        maxCameraCenterX = computeMaxCamX();
+
+        killCount         = 0;
+        timeLeft          = LEVEL_TIME;
+        bonusRemaining    = 0.f;
+        bonusEarned       = 0;
+        gameState         = GameState::Playing;
+        scoreSaved        = false;
+        inLevelTransition = false;
+        winScreenTimer    = 0.f;
+
+        stopGameplayMusic();
+        if (menuMusicLoaded) menuMusic.play();   // wracamy do menu — wlacz muzyke menu
+    };
 
     sf::View gameView(sf::FloatRect({ 0.f, 0.f }, viewSize));
     gameView.setCenter(viewSize / 2.f);
@@ -456,30 +668,31 @@ int main() {
                 windowHasFocus = true;
             }
 
-            // Rozdzielenie obslugi zdarzen wedlug stanu calej aplikacji.
+            // [LEVEL2] Podczas ekranu przejsciowego blokujemy wszystkie inputy gry
+            if (inLevelTransition) continue;
+
             switch (appState) {
 
             case AppState::MainMenu:
             case AppState::NameInput:
-                // Menu samo wewnetrznie rozpoznaje, ktory z dwoch
-                // ekranow (opcje / wpisywanie nicku) obecnie obslugiwac.
                 menu.handleEvent(*event, appState, playerName);
-
-                // Gdy NameInput zostalo wlasnie zatwierdzone, Menu
-                // ustawilo appState = AppState::Gameplay i playerName.
-                // Przekazujemy nick do gracza i (re)inicjalizujemy swiat gry.
                 if (appState == AppState::Gameplay) {
                     player.setName(playerName);
+                    // Wejscie do rozgrywki — zatrzymaj muzyke menu i wystartuj gameplay
+                    menuMusic.stop();
+                    switchMusic(currentLevel);
                 }
                 break;
 
             case AppState::PauseMenu:
                 if (const auto* key = event->getIf<sf::Event::KeyPressed>()) {
                     if (key->code == sf::Keyboard::Key::Escape) {
-                        appState = AppState::Gameplay; // wznowienie
+                        appState = AppState::Gameplay;
+                        resumeGameplayMusic();   // wznow muzyke od miejsca pauzy
                     }
                     else if (key->code == sf::Keyboard::Key::Q) {
-                        // Powrot do glownego menu z pauzy
+                        stopGameplayMusic();
+                        if (menuMusicLoaded) menuMusic.play();   // powrot do menu
                         menu.reset();
                         appState = AppState::MainMenu;
                     }
@@ -487,66 +700,31 @@ int main() {
                 break;
 
             case AppState::Leaderboard:
-                // Klasa Leaderboard sama obsluguje wyjscie (Escape -> MainMenu).
                 leaderboard.handleEvent(*event, appState);
                 break;
 
             case AppState::Gameplay:
                 if (const auto* key = event->getIf<sf::Event::KeyPressed>()) {
                     if (key->code == sf::Keyboard::Key::Escape) {
-                        appState = AppState::PauseMenu; // pauza, nie zamykanie okna
-                        break; // nie przekazujemy Escape do gracza
+                        appState = AppState::PauseMenu;
+                        pauseGameplayMusic();    // wycisz muzyke podczas pauzy
+                        break;
                     }
 
-                    // Restart po Game Over lub po zakonczeniu ekranu wygranej
+                    // R — restart od Level 1 (dziala w GameOver i Win)
                     if (key->code == sf::Keyboard::Key::R &&
                         gameState != GameState::Playing) {
-                        player = Player();
-                        player.setName(playerName);
-                        player.setItemList(&items);
-                        items.clear();
+                        fullGameReset();           // [FIX3] centralizowany reset
+                        switchMusic(0);
+                    }
 
-                        tileMap.loadFromFile("level1.txt");
-
-                        bullets.clear();
-                        shootCooldown = 0.f;
-
-                        brickDebris.clear();
-
-                        enemies.clear();
-
-                        enemies.reserve(17);
-                        enemies.emplace_back(sf::Vector2f(600.f, 380.f));
-                        enemies.emplace_back(sf::Vector2f(38 * 32.f, 352.f));
-                        enemies.emplace_back(sf::Vector2f(62 * 32.f, 352.f));
-                        enemies.emplace_back(sf::Vector2f(80 * 32.f, 192.f));
-                        enemies.emplace_back(sf::Vector2f(105 * 32.f, 352.f));
-                        enemies.emplace_back(sf::Vector2f(130 * 32.f, 352.f));
-                        enemies.emplace_back(sf::Vector2f(158 * 32.f, 352.f));
-                        enemies.emplace_back(sf::Vector2f(185 * 32.f, 352.f));
-                        enemies.emplace_back(sf::Vector2f(215 * 32.f, 256.f));
-                        enemies.emplace_back(sf::Vector2f(235 * 32.f, 352.f));
-                        enemies.emplace_back(sf::Vector2f(255 * 32.f, 192.f));
-                        enemies.emplace_back(sf::Vector2f(54 * 32.f, 352.f));
-                        enemies.emplace_back(sf::Vector2f(71 * 32.f, 352.f));
-                        enemies.emplace_back(sf::Vector2f(170 * 32.f, 352.f));
-                        enemies.emplace_back(sf::Vector2f(95 * 32.f, 352.f));
-                        enemies.emplace_back(sf::Vector2f(200 * 32.f, 352.f));
-                        enemies.emplace_back(sf::Vector2f(80 * 32.f, 352.f));
-                        killCount      = 0;
-                        timeLeft       = LEVEL_TIME;
-                        bonusRemaining = 0.f;
-                        bonusEarned    = 0;
-                        gameState      = GameState::Playing;
-                        scoreSaved     = false;
-
-                        if (musicLoaded) {
-                            musicLevel1.stop();
-                            musicLevel1.play();
-                        }
-
-                        for (Checkpoint& cp : checkpoints)
-                            cp.reset();
+                    // [FIX3] M — powrot do menu glownego po wygranej lub po game over
+                    // Resetuje gre i przelacza appState na MainMenu.
+                    if (key->code == sf::Keyboard::Key::M &&
+                        gameState != GameState::Playing) {
+                        fullGameReset();
+                        menu.reset();
+                        appState = AppState::MainMenu;
                     }
 
                     player.handleKeyPressed(key->code);
@@ -561,22 +739,55 @@ int main() {
 
         const float dt = clock.restart().asSeconds();
 
-        // Menu ma wlasna, lekka logike (np. miganie kursora nicku)
-        // niezalezna od stanu rozgrywki.
         if (appState == AppState::MainMenu || appState == AppState::NameInput) {
             menu.update(dt);
         }
 
         // ============================================================
-        //  UPDATE
+        //  [LEVEL2] UPDATE — ekran przejsciowy miedzy poziomami
         // ============================================================
-        if (appState == AppState::Gameplay && gameState == GameState::Playing) {
+        if (appState == AppState::Gameplay && inLevelTransition) {
+            levelTransitionTimer -= dt;
 
+            if (levelTransitionTimer <= 0.f) {
+                // Czas minal — ladujemy poziom 2 i wznawiamy gre
+                inLevelTransition = false;
+
+                initLevel(currentLevel);           // laduje mape, wrogow, checkpointy
+                maxCameraCenterX = computeMaxCamX();
+
+                // Pozycja startowa gracza na nowym poziomie
+                const sf::Vector2f startPos = levelConfigs[currentLevel].playerStart;
+                player.setSpawnPoint(startPos);
+                player.respawn();                  // teleportuje do spawn pointa
+
+                // Reset kamery natychmiastowy (bez lerp) — zeby nie "przeskoczyc" przez mape
+                gameView.setCenter({ viewSize.x / 2.f, viewSize.y / 2.f });
+
+                items.clear();
+                bullets.clear();
+                shootCooldown = 0.f;
+
+                timeLeft       = LEVEL_TIME;       // nowy czas dla poziomu 2
+                bonusRemaining = 0.f;
+                bonusEarned    = 0;
+                gameState      = GameState::Playing;
+
+                switchMusic(currentLevel);         // [LEVEL2] muzyka poziomu 2
+            }
+        }
+
+        // ============================================================
+        //  UPDATE — glowna logika gry (blokowana podczas przejscia)
+        // ============================================================
+        if (appState == AppState::Gameplay && gameState == GameState::Playing
+            && !inLevelTransition)
+        {
             // --- Odliczanie czasu ---
             timeLeft -= dt;
             if (timeLeft <= 0.f) {
                 timeLeft = 0.f;
-                player.loseLife();   // czas minął = śmierć
+                player.loseLife();
             }
 
             // --- Gracz ---
@@ -606,26 +817,20 @@ int main() {
                     dir = 1.f;
                 }
                 float bulletY;
-
-                if (player.isCrouching()) {
-                    // strzał przy kucaniu
+                if (player.isCrouching())
                     bulletY = pb.position.y + pb.size.y - 13.f;
-                }
-                else {
-                    // strzał przy staniu
+                else
                     bulletY = pb.position.y + pb.size.y - 55.f;
-                }
 
                 sf::Vector2f spawnPos = {
-                    dir > 0.f ? pb.position.x + pb.size.x
-                              : pb.position.x,
+                    dir > 0.f ? pb.position.x + pb.size.x : pb.position.x,
                     bulletY
                 };
 
                 if (player.isTripleShotActive()) {
-                    bullets.emplace_back(spawnPos, dir, 0.f);
-                    bullets.emplace_back(spawnPos, dir, -15.f); 
-                    bullets.emplace_back(spawnPos, dir, 15.f); 
+                    bullets.emplace_back(spawnPos, dir,  0.f);
+                    bullets.emplace_back(spawnPos, dir, -15.f);
+                    bullets.emplace_back(spawnPos, dir,  15.f);
                 }
                 else {
                     bullets.emplace_back(spawnPos, dir);
@@ -633,7 +838,7 @@ int main() {
                 shootCooldown = SHOOT_DELAY;
             }
 
-            // --- Update pocisków + kolizje z wrogami ---
+            // --- Update pociskow + kolizje z kafelkami ---
             for (Bullet& bullet : bullets) {
                 if (!bullet.isActive()) continue;
 
@@ -702,9 +907,8 @@ int main() {
                 brickDebris.end());
 
             for (Checkpoint& cp : checkpoints) {
-                if (cp.checkCollision(player)) {
+                if (cp.checkCollision(player))
                     player.setSpawnPoint(cp.getPosition());
-                }
             }
 
             for (Item& it : items)
@@ -729,39 +933,33 @@ int main() {
                 }
             }
 
-            // Screen shake — odpalany przez justDied()
             if (player.justDied()) {
                 shakeTimer = SHAKE_DURATION;
                 player.clearJustDied();
             }
 
-            // --- Wrogowie ---
             for (Enemy& enemy : enemies)
                 enemy.update(dt, tileMap);
 
-            // --- Kolizja gracz / itemy ---
             for (Item& it : items) {
                 if (!it.isCollected() && it.getBounds().findIntersection(player.getBounds())) {
                     it.collect();
 
-                    if (it.getType() == ItemType::Coin) {
+                    if (it.getType() == ItemType::Coin)
                         player.addScore(100);
-                    }
                     else if (it.getType() == ItemType::Heart) {
-                        player.addLife();   
+                        player.addLife();
                         player.addScore(300);
                     }
                     else if (it.getType() == ItemType::Mushroom) {
                         player.activateTripleShot();
                         player.addScore(200);
                     }
-
                 }
             }
 
-            // --- Kolizje gracz / wrogowie ---
             for (Enemy& enemy : enemies) {
-                if (!enemy.isAlive()) continue;               
+                if (!enemy.isAlive()) continue;
 
                 if (enemy.checkCollisionWithPlayer(player) && player.getVelocity().y > 0.f) {
                     enemy.kill();
@@ -769,18 +967,14 @@ int main() {
                     ++killCount;
                     player.bounce();
                 }
-
                 else if (enemy.getBounds().findIntersection(player.getBounds())) {
-                    if (player.isInvincible())
-                        continue;
-
+                    if (player.isInvincible()) continue;
                     player.loseLife();
                     if (player.justDied()) {
                         shakeTimer = SHAKE_DURATION;
                         player.clearJustDied();
                     }
                 }
-
             }
 
             // --- Kamera (lerp) ---
@@ -793,10 +987,9 @@ int main() {
             center.x += (targetX - center.x) * lerp;
             center.y  = viewSize.y / 2.f;
 
-            // Screen shake — losowe przesuniecie kamery
             shakeTimer = std::max(0.f, shakeTimer - dt);
             if (shakeTimer > 0.f) {
-                const float t = shakeTimer / SHAKE_DURATION;  // 1->0
+                const float t = shakeTimer / SHAKE_DURATION;
                 const float mag = SHAKE_MAGNITUDE * t;
                 center.x += (std::rand() % 2 == 0 ? 1 : -1) * mag;
                 center.y += (std::rand() % 2 == 0 ? 1 : -1) * mag;
@@ -807,33 +1000,50 @@ int main() {
             // --- Warunki konca gry ---
             if (player.getLives() <= 0 && !player.isDying()) {
                 gameState = GameState::GameOver;
-                if (musicLoaded)
-                    musicLevel1.stop();
-                if (loseSoundLoaded && loseSound)
-                    loseSound->play();
+                stopGameplayMusic();
+                if (loseSoundLoaded && loseSound) loseSound->play();
 
                 if (!scoreSaved) {
-                    // Gracz przegral bez ukonczenia poziomu — 0 poziomow przejscia.
-                    leaderboard.addScore(playerName, 0, player.getScore());
+                    // [LEVEL2] Przekazujemy aktualny poziom jako liczbe ukoncz. poziomow
+                    leaderboard.addScore(playerName, currentLevel, player.getScore());
                     leaderboard.saveToFile(LEADERBOARD_FILE);
                     scoreSaved = true;
                 }
             }
 
-            if (goalFlag.checkCollisionWithPlayer(player)) {
-                gameState      = GameState::Win;
-                bonusRemaining = timeLeft;   // zamroz czas jako bonus
-                bonusEarned    = 0;
-                timeLeft       = 0.f;
-                if (musicLoaded)
-                    musicLevel1.stop();
-                if (endLevelSoundLoaded && endLevelSound)
-                    endLevelSound->play();
+            // --------------------------------------------------------
+            // [LEVEL2] Kolizja z flaga — zachowanie zalezne od poziomu
+            // --------------------------------------------------------
+            if (goalFlag && goalFlag->checkCollisionWithPlayer(player)) {
+                if (currentLevel < static_cast<int>(levelConfigs.size()) - 1) {
+                    // --- Jest jeszcze nastepny poziom — uruchom przejscie ---
+                    gameState = GameState::Playing;  // nie Win, bo punkty nie sa jeszcze zapisane
+                    stopGameplayMusic();
+                    if (endLevelSoundLoaded && endLevelSound) endLevelSound->play();
+
+                    // Bonus za czas dla biezacego poziomu — przyznaj natychmiast
+                    // (bez animacji countdown, bo ekran przejsciowy i tak zajmie czas)
+                    const int timeBonus = static_cast<int>(timeLeft) * 100;
+                    player.addScore(timeBonus);
+
+                    currentLevel++;                            // [LEVEL2] nastepny poziom
+                    inLevelTransition   = true;
+                    levelTransitionTimer = LEVEL_TRANSITION_DURATION;
+                }
+                else {
+                    // --- To byl ostatni poziom — normalne zakonczenie gry ---
+                    gameState      = GameState::Win;
+                    bonusRemaining = timeLeft;
+                    bonusEarned    = 0;
+                    timeLeft       = 0.f;
+                    stopGameplayMusic();
+                    if (endLevelSoundLoaded && endLevelSound) endLevelSound->play();
+                }
             }
 
         } // end Playing
 
-        // --- Odliczanie bonusu po wygranej ---
+        // [FIX3] Odliczanie bonusu po wygranej (ostatni poziom)
         if (appState == AppState::Gameplay && gameState == GameState::Win && bonusRemaining > 0.f) {
             const float drain = std::min(bonusRemaining, BONUS_DRAIN_RATE * dt);
             bonusRemaining -= drain;
@@ -841,22 +1051,37 @@ int main() {
             bonusEarned    += pts;
             player.addScore(pts);
 
-            if (bonusRemaining < 0.5f) bonusRemaining = 0.f;  // snap do 0
+            if (bonusRemaining < 0.5f) bonusRemaining = 0.f;
         }
 
-        // Zapis wyniku do tablicy wynikow — dopiero gdy bonus czasowy
-        // sie wyczerpal, aby zapisac ostateczna (pelna) punktacje.
+        // [LEVEL2] Zapis do leaderboard — dopiero po ostatnim poziomie i wyzerowaniu bonusu
         if (appState == AppState::Gameplay && gameState == GameState::Win &&
-            bonusRemaining <= 0.f && !scoreSaved) {
-            // Gracz dotarl do flagi — 1 przebyty poziom (gra ma na razie 1 poziom).
-            leaderboard.addScore(playerName, 1, player.getScore());
+            bonusRemaining <= 0.f && !scoreSaved)
+        {
+            leaderboard.addScore(playerName, currentLevel + 1, player.getScore());
             leaderboard.saveToFile(LEADERBOARD_FILE);
             scoreSaved = true;
         }
 
+        // [FIX3] Odliczanie timera ekranu wygranej — po jego uplywie auto-powrot do menu.
+        // Timer startuje dopiero gdy bonus jest wyzerowany (scoreSaved == true),
+        // zeby gracz zdazyl zobaczyc ostateczny wynik przed znikaniem ekranu.
+        if (appState == AppState::Gameplay && gameState == GameState::Win &&
+            bonusRemaining <= 0.f && scoreSaved)
+        {
+            winScreenTimer += dt;
+            if (winScreenTimer >= WIN_SCREEN_DURATION) {
+                // Czas minal — resetuj gre i wróc do menu glownego
+                fullGameReset();
+                menu.reset();
+                appState = AppState::MainMenu;
+            }
+        }
+
         // --- Tytul okna ---
         if (appState == AppState::Gameplay || appState == AppState::PauseMenu) {
-            window.setTitle("Mario Contra 2 | zycia: " + std::to_string(player.getLives())
+            window.setTitle("Mario Contra 2 | poziom: " + std::to_string(currentLevel + 1)
+                            + " | zycia: " + std::to_string(player.getLives())
                             + " | pkt: " + std::to_string(player.getScore()));
         } else {
             window.setTitle("Mario Contra 2");
@@ -868,7 +1093,17 @@ int main() {
         window.clear(sf::Color(135, 206, 235));
 
         if (appState == AppState::Gameplay || appState == AppState::PauseMenu) {
-            // --- Swiat gry (z kamera) ---
+
+            // [LEVEL2] Ekran przejsciowy rysujemy zamiast swiata gry
+            if (inLevelTransition) {
+                window.setView(uiView);
+                if (fontLoaded)
+                    drawLevelTransition(window, font, currentLevel + 1,
+                                        levelTransitionTimer, LEVEL_TRANSITION_DURATION);
+                window.display();
+                continue;  // pomijamy reszte rysowania w tej klatce
+            }
+
             window.setView(gameView);
 
             drawTileMap(window, tileMap, tileTextures);
@@ -882,41 +1117,40 @@ int main() {
             for (BrickDebris& d : brickDebris)
                 d.draw(window);
 
-            goalFlag.draw(window);
+            if (goalFlag) goalFlag->draw(window);
             for (Enemy& enemy : enemies) enemy.draw(window);
             player.draw(window);
 
             for (const Checkpoint& cp : checkpoints)
                 cp.draw(window);
 
-            // --- UI (fixed, bez scrollowania) ---
             window.setView(uiView);
 
             if (fontLoaded)
-                drawHUD(window, font, player.getLives(), player.getScore(), timeLeft, texHeart);
+                drawHUD(window, font, player.getLives(), player.getScore(), timeLeft,
+                        texHeart, currentLevel + 1);  // [LEVEL2] przekazujemy numer poziomu
 
-            // Overlay stanow rozgrywki (Game Over / Win) — tylko gdy faktycznie gramy
             if (appState == AppState::Gameplay) {
                 if (gameState == GameState::GameOver && fontLoaded)
                     drawOverlay(window, font, "GAME OVER",
-                        "Nacisnij R aby zagrac ponownie", sf::Color::Red);
+                        "R - zagraj ponownie   M - menu glowne", sf::Color::Red);
 
                 else if (gameState == GameState::Win && bonusRemaining > 0.f && fontLoaded)
                     drawBonusCountdown(window, font, bonusRemaining, bonusEarned);
 
                 else if (gameState == GameState::Win && bonusRemaining <= 0.f && fontLoaded)
-                    drawOverlay(window, font, "LEVEL OVER",
+                    drawOverlay(window, font, "GRA UKONCZONA!",
                         "Punkty: " + formatScore(player.getScore())
-                        + "   Nacisnij R", sf::Color::Yellow);
+                        + "   R-restart  M-menu  (auto-powrot za "
+                        + std::to_string(static_cast<int>(WIN_SCREEN_DURATION - winScreenTimer) + 1)
+                        + "s)", sf::Color::Yellow);
             }
 
-            // --- Nakladka menu pauzy (gra zamrozona pod nia) ---
             if (appState == AppState::PauseMenu && fontLoaded) {
                 drawOverlay(window, font, "PAUZA",
                     "Esc - wznow   /   Q - menu glowne", sf::Color::White);
             }
 
-            // Przywroc widok gry
             window.setView(gameView);
         }
         else if (appState == AppState::MainMenu || appState == AppState::NameInput) {

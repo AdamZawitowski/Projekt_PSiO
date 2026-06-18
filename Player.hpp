@@ -154,4 +154,7 @@ private:
     std::optional<sf::Vector2f> m_lastBrickHit;
 
     bool m_wantStandUp = false;
+    // FIX 6: pomija grawitacje przez jedna klatke po respawnie,
+    // zapobiega przebijaniu przez podloge przy duzym dt
+    bool  m_skipGravityOneFrame = false;
 };

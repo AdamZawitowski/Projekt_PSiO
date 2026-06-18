@@ -334,6 +334,16 @@ void Player::update(float dt) {
 //  Grawitacja                                                           //
 // ------------------------------------------------------------------ //
 void Player::applyGravity(float dt) {
+    // FIX 6: po respawnie pomijamy grawitacje przez JEDNA klatke.
+    // Bez tego: velocity={0,0}, ale applyGravity() natychmiast nadaje
+    // velocity.y += 800*dt. Przy duzym dt (pierwsza klatka po pauzie
+    // lub przejsciu poziomu) to nawet 40px — wiecej niz jeden kafelek (32px).
+    // resolveCollisions() nie zdazy wychwycic kolizji i gracz przebija dno.
+    if (m_skipGravityOneFrame) {
+        m_skipGravityOneFrame = false;
+        return;
+    }
+
     if (m_onGround) return;
     m_velocity.y += GRAVITY * dt;
     if (m_velocity.y > MAX_FALL) m_velocity.y = MAX_FALL;
@@ -546,6 +556,12 @@ void Player::loseLife() {
     m_deathTimer = DEATH_DELAY;
     m_lives--;
 
+    // FIX 5: zeruj wejscie klawiatury — bez tego wcisniety klawisz ruchu
+    // jest "pamietany" przez caly czas animacji smierci i w pierwszej klatce
+    // po respawnie updateMovement() nadaje velocity.x != 0 (gracz pedem
+    // wpada w sciane lub przepasc zanim zdazy wylac sie grawitacja).
+    clearMovementInput();
+
     // Death bounce — ostry impuls w gore, grawitacja potem sciagnie w dol
     m_velocity = { 0.f, -600.f };
 
@@ -556,25 +572,49 @@ void Player::loseLife() {
 }
 
 void Player::respawn() {
-    m_shape.setPosition(m_spawnPoint);
-    m_velocity  = { 0.f, 0.f };
-    m_onGround  = false;
-    m_isDying   = false;
-    m_justDied  = false;
-
+    // --- FIX 1: reset kucania PRZED ustawieniem pozycji ---
+    // Hitbox musi miec pelna wysokosc zanim wyliczymy pozycje startowa,
+    // inaczej korekcja pozycji bedzie bazowac na zlym rozmiarze.
     if (m_isCrouching) {
         m_isCrouching = false;
         m_shape.setSize({ HITBOX_W, HITBOX_H });
     }
 
+    // --- FIX 2: bezwzgledne zerowanie predkosci ---
+    // Gracz "pamietywal" velocity.y = -600 (death bounce) lub ogromna
+    // predkosc spadania. Pierwsza klatka po respawnie przesuwala hitbox
+    // tak daleko w dol, ze przebijal przez podloge zanim resolveCollisions
+    // zdazylo go zatrzymac.
+    m_velocity  = { 0.f, 0.f };
+
+    // Ustawiamy pozycje bezposrednio ze spawnPoint — wartosc jest juz
+    // obliczona poprawnie w LevelConfig (gorna krawedz hitboxa tak,
+    // zeby nogi staly dokladnie na gornej krawedzi kafelka ziemi).
+    // Nie stosujemy dodatkowych offsetow — poprzedni offset -1px byl
+    // workaroundem dla blednego spawnY i jest juz zbedny.
+    m_shape.setPosition(m_spawnPoint);
+
+    // --- FIX 4: jawne wyzerowanie wszystkich flag fizyki ---
+    // m_onGround = false jest poprawne: w pierwszej klatce resolveCollisions
+    // wykryje podloge i ustawi go na true. NIE ustawiamy true tutaj, bo
+    // moglyby pojawic sie artefakty jesli spawn jest w powietrzu.
+    m_onGround  = false;
+    m_isDying   = false;
+    m_justDied  = false;
+
+    // --- Reset stanu animacji ---
+    // Trick: ustawiamy m_state na Dead, zeby setState(Idle) wymuszyl
+    // pelne przelaczenie tekstury (setState() ma early-return gdy stan
+    // sie nie zmienil).
     if (m_texturesLoaded) {
         m_state = PlayerState::Dead;
         setState(PlayerState::Idle);
     }
 
-    m_invincible = true;
-    m_invincibleTimer = 1.5f;
-
+    // Nietykalnosc po respawnie
+    m_invincible          = true;
+    m_invincibleTimer     = 1.5f;
+    m_skipGravityOneFrame = true;   // FIX 6: pomijamy grawitacje w 1. klatce
 }
 
 // ------------------------------------------------------------------ //
@@ -587,7 +627,7 @@ bool Player::canStandUp(const TileMap& tileMap) const {
     const float diff = HITBOX_H - HITBOX_CROUCH_H;
     const float newTop = b.position.y - diff;
 
-    const int leftCol = static_cast<int>(std::floor(b.position.x / TS));
+    const int leftCol  = static_cast<int>(std::floor(b.position.x / TS));
     const int rightCol = static_cast<int>(std::floor((b.position.x + HITBOX_W - 0.001f) / TS));
 
     const int topRowNew = static_cast<int>(std::floor(newTop / TS));
