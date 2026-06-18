@@ -1,4 +1,11 @@
 # Projekt_PSiO
+
+--- Sterowanie: ---
+Ruch postaci: wsad lub strzałki
+Skok: spacja lub w lub strzałka w górę
+Strzelanie: ctrl lub z
+Sprint: shift
+
 Proponowany podział ról
 Osoba Adam Zawitowski — Gameplay / Mechaniki gry
 
