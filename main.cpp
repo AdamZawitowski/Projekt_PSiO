@@ -201,33 +201,56 @@ void drawHUD(sf::RenderWindow& window, const sf::Font& font,
 
 // ================================================================== //
 //  Overlay (GameOver / Win)                                            //
+//  Napisy sa automatycznie skalowane tak, by nigdy nie wychodzily      //
+//  poza szerokosc okna (margines 20px z kazdej strony).               //
 // ================================================================== //
 void drawOverlay(sf::RenderWindow& window, const sf::Font& font,
                  const std::string& title, const std::string& subtitle,
                  sf::Color titleColor)
 {
-    sf::RectangleShape bg({ static_cast<float>(window.getSize().x),
-                            static_cast<float>(window.getSize().y) });
+    const float W  = static_cast<float>(window.getSize().x);
+    const float H  = static_cast<float>(window.getSize().y);
+    const float margin = 20.f;
+    const float maxW   = W - 2.f * margin;
+
+    sf::RectangleShape bg({ W, H });
     bg.setFillColor(sf::Color(0, 0, 0, 160));
     window.draw(bg);
 
+    // --- Tytul (GAME OVER / GRA UKONCZONA itp.) ---
     sf::Text t(font, title, 48);
     t.setFillColor(titleColor);
     t.setStyle(sf::Text::Bold);
-    sf::FloatRect tb = t.getLocalBounds();
-    t.setOrigin({ tb.position.x + tb.size.x / 2.f,
-                  tb.position.y + tb.size.y / 2.f });
-    t.setPosition({ window.getSize().x / 2.f,
-                    window.getSize().y / 2.f - 60.f });
+    {
+        sf::FloatRect tb = t.getLocalBounds();
+        // Zmniejsz czcionke jesli napis jest za szeroki
+        if (tb.size.x > maxW) {
+            const unsigned int reducedSize =
+                static_cast<unsigned int>(48u * (maxW / tb.size.x));
+            t.setCharacterSize(std::max(12u, reducedSize));
+            tb = t.getLocalBounds();
+        }
+        t.setOrigin({ tb.position.x + tb.size.x / 2.f,
+                      tb.position.y + tb.size.y / 2.f });
+    }
+    t.setPosition({ W / 2.f, H / 2.f - 60.f });
     window.draw(t);
 
+    // --- Podtytul (instrukcja R / M itp.) ---
     sf::Text s(font, subtitle, 18);
     s.setFillColor(sf::Color::White);
-    sf::FloatRect sb = s.getLocalBounds();
-    s.setOrigin({ sb.position.x + sb.size.x / 2.f,
-                  sb.position.y + sb.size.y / 2.f });
-    s.setPosition({ window.getSize().x / 2.f,
-                    window.getSize().y / 2.f + 20.f });
+    {
+        sf::FloatRect sb = s.getLocalBounds();
+        if (sb.size.x > maxW) {
+            const unsigned int reducedSize =
+                static_cast<unsigned int>(18u * (maxW / sb.size.x));
+            s.setCharacterSize(std::max(10u, reducedSize));
+            sb = s.getLocalBounds();
+        }
+        s.setOrigin({ sb.position.x + sb.size.x / 2.f,
+                      sb.position.y + sb.size.y / 2.f });
+    }
+    s.setPosition({ W / 2.f, H / 2.f + 20.f });
     window.draw(s);
 }
 
@@ -449,7 +472,23 @@ int main() {
     loseSound->setVolume(90.f);
     endLevelSound->setVolume(90.f);
 
-    // [LEVEL2] Muzyka poziomu 2 — ladujemy z gory, startujemy gdy trzeba
+    // ----------------------------------------------------------------
+    // MUZYKA MENU — osobny utwor odtwarzany wylacznie w menu/name input
+    // ----------------------------------------------------------------
+    sf::Music menuMusic;
+    bool menuMusicLoaded = false;
+    if (!menuMusic.openFromFile("assets/music/menu.wav")) {
+        std::cerr << "[main] brak: assets/music/menu.wav (opcjonalne)\n";
+    } else {
+        menuMusic.setLooping(true);
+        menuMusic.setVolume(60.f);
+        menuMusic.play();   // startujemy od razu — aplikacja otwiera sie w menu
+        menuMusicLoaded = true;
+    }
+
+    // ----------------------------------------------------------------
+    // [LEVEL2] Muzyka rozgrywki — osobne utwory dla kazdego poziomu
+    // ----------------------------------------------------------------
     sf::Music musicLevel1;
     sf::Music musicLevel2;
     bool musicLevel1Loaded = false;
@@ -460,7 +499,7 @@ int main() {
     } else {
         musicLevel1.setLooping(true);
         musicLevel1.setVolume(55.f);
-        musicLevel1.play();
+        // NIE startujemy — zacznie grac dopiero po wejsciu do rozgrywki
         musicLevel1Loaded = true;
     }
 
@@ -473,7 +512,24 @@ int main() {
         // NIE startujemy — zacznie grac dopiero po przejsciu do poziomu 2
     }
 
-    // [LEVEL2] Pomocnicza lamda przelaczajaca muzyk miedzy poziomami
+    // Pomocnicza lamda: zatrzymuje CALA muzyke rozgrywki (obie sciezki)
+    auto stopGameplayMusic = [&]() {
+        musicLevel1.stop();
+        musicLevel2.stop();
+    };
+
+    // Pomocnicza lamda: pauza/wznawianie muzyki rozgrywki (Escape)
+    auto pauseGameplayMusic = [&]() {
+        if (musicLevel1.getStatus() == sf::Music::Status::Playing) musicLevel1.pause();
+        if (musicLevel2.getStatus() == sf::Music::Status::Playing) musicLevel2.pause();
+    };
+    auto resumeGameplayMusic = [&]() {
+        // Wznawiamy tylko te, ktora byla grana (nie startujemy obu naraz)
+        if (musicLevel1.getStatus() == sf::Music::Status::Paused) musicLevel1.play();
+        if (musicLevel2.getStatus() == sf::Music::Status::Paused) musicLevel2.play();
+    };
+
+    // [LEVEL2] Pomocnicza lamda przelaczajaca muzyk miedzy poziomami rozgrywki
     auto switchMusic = [&](int levelIdx) {
         musicLevel1.stop();
         musicLevel2.stop();
@@ -562,8 +618,8 @@ int main() {
         inLevelTransition = false;
         winScreenTimer    = 0.f;
 
-        musicLevel1.stop();
-        musicLevel2.stop();
+        stopGameplayMusic();
+        if (menuMusicLoaded) menuMusic.play();   // wracamy do menu — wlacz muzyke menu
     };
 
     sf::View gameView(sf::FloatRect({ 0.f, 0.f }, viewSize));
@@ -600,6 +656,9 @@ int main() {
                 menu.handleEvent(*event, appState, playerName);
                 if (appState == AppState::Gameplay) {
                     player.setName(playerName);
+                    // Wejscie do rozgrywki — zatrzymaj muzyke menu i wystartuj gameplay
+                    menuMusic.stop();
+                    switchMusic(currentLevel);
                 }
                 break;
 
@@ -607,8 +666,11 @@ int main() {
                 if (const auto* key = event->getIf<sf::Event::KeyPressed>()) {
                     if (key->code == sf::Keyboard::Key::Escape) {
                         appState = AppState::Gameplay;
+                        resumeGameplayMusic();   // wznow muzyke od miejsca pauzy
                     }
                     else if (key->code == sf::Keyboard::Key::Q) {
+                        stopGameplayMusic();
+                        if (menuMusicLoaded) menuMusic.play();   // powrot do menu
                         menu.reset();
                         appState = AppState::MainMenu;
                     }
@@ -623,6 +685,7 @@ int main() {
                 if (const auto* key = event->getIf<sf::Event::KeyPressed>()) {
                     if (key->code == sf::Keyboard::Key::Escape) {
                         appState = AppState::PauseMenu;
+                        pauseGameplayMusic();    // wycisz muzyke podczas pauzy
                         break;
                     }
 
@@ -899,8 +962,7 @@ int main() {
             // --- Warunki konca gry ---
             if (player.getLives() <= 0 && !player.isDying()) {
                 gameState = GameState::GameOver;
-                musicLevel1.stop();
-                musicLevel2.stop();
+                stopGameplayMusic();
                 if (loseSoundLoaded && loseSound) loseSound->play();
 
                 if (!scoreSaved) {
@@ -918,8 +980,7 @@ int main() {
                 if (currentLevel < static_cast<int>(levelConfigs.size()) - 1) {
                     // --- Jest jeszcze nastepny poziom — uruchom przejscie ---
                     gameState = GameState::Playing;  // nie Win, bo punkty nie sa jeszcze zapisane
-                    musicLevel1.stop();
-                    musicLevel2.stop();
+                    stopGameplayMusic();
                     if (endLevelSoundLoaded && endLevelSound) endLevelSound->play();
 
                     // Bonus za czas dla biezacego poziomu — przyznaj natychmiast
@@ -937,8 +998,7 @@ int main() {
                     bonusRemaining = timeLeft;
                     bonusEarned    = 0;
                     timeLeft       = 0.f;
-                    musicLevel1.stop();
-                    musicLevel2.stop();
+                    stopGameplayMusic();
                     if (endLevelSoundLoaded && endLevelSound) endLevelSound->play();
                 }
             }
